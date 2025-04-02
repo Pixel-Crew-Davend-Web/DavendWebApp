@@ -1,40 +1,68 @@
-<app-header></app-header>
-
-  <div class="landing-container">
-    <h1>Welcome to Our Store</h1>
-    <p>Discover the best products we have to offer. Log in to manage inventory.</p>
-
-    <div class="search-bar">
-      <input 
-        type="text" 
-        placeholder="Search products..." 
-        [(ngModel)]="searchTerm"
-        (input)="filterProducts()" 
-      >
+<!-- products-page.component.html -->
+<header class="site-header">
+  <div class="header-top">
+    <div class="company-info">
+      <p>1234 Street Name, Unit# Mississauga, Ontario</p>
+      <p>P: 905-555-1212</p>
+      <p>F: 905-555-3434</p>
+      <p>sales@companypunch.ca</p>
     </div>
-  
-    <h2>Available Products</h2>
-    <div class="products-grid">
-      <div class="product-card" *ngFor="let product of filteredProducts">
-        <img [src]="getImageUrl(product.imageURL)" class="product-img">
-        <h3>{{ product.name }}</h3>
-        <p>{{ product.description }}</p>
-        <p [ngStyle]="{color: 'red'}">${{ product.price }}</p>
-        <span>Quantity Available: {{ product.qty }}</span>
-        <br>
-        <input type="number" [(ngModel)]="product.inputQty" placeholder="Quantity" min="1">
-        <div *ngIf="product.inputQty > product.qty" class="error-message">
-          Not enough stock available.
-        </div>
-        <div *ngIf="product.inputQty <= 0" class="error-message">
-          Please enter a valid quantity.
-        </div>
-        <div *ngIf="product.inputQty > 0 && product.inputQty <= product.qty" class="success-message">
-          Available for purchase.
-        </div>
-        <button [disabled]="product.inputQty <= 0 || product.inputQty > product.qty" (click)="addProduct(product.id, product.inputQty)" class="addProduct-button">Add Product</button>
-      </div>
+    <div class="header-links">
+      <a routerLink="/register">Register</a>
+      <a routerLink="/login">Login</a>
     </div>
   </div>
-  
-<app-footer></app-footer>
+  <nav class="main-nav">
+    <ul>
+      <li><a routerLink="/">Home</a></li>
+      <li><a routerLink="/products">Our Products</a></li>
+      <li><a routerLink="/contact">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main>
+  <h1>Filter Products</h1>
+  <div class="filter-section">
+    <div class="filter-group">
+      <label for="category">Category</label>
+      <select id="category" name="category" [(ngModel)]="selectedCategory">
+        <option value="">--Select--</option>
+        <option *ngFor="let cat of categories" [value]="cat">
+          {{ cat | titlecase }}
+        </option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="product-name">Product Name</label>
+      <input
+        type="text"
+        id="product-name"
+        name="productName"
+        placeholder="Search product..."
+        [(ngModel)]="searchTerm"
+      />
+    </div>
+  </div>
+
+  <section class="product-categories">
+    <!-- Loop through product categories (assuming each has a 'name' and 'products' array) -->
+    <div *ngFor="let category of productCategories" class="product-category">
+      <h2>{{ category.name }}</h2>
+      <!-- Loop through products in this category -->
+      <div *ngFor="let product of category.products" class="product-item">
+        <img [src]="product.imageUrl" [alt]="product.name" />
+        <p>{{ product.name }}</p>
+        <button (click)="addToCart(product)">Add to Cart</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <p>
+    1234 Street Name, Unit# Mississauga, Ontario | P: 905-555-1212 | F:
+    905-555-3434
+  </p>
+  <p>sales@companypunch.ca | www.companypunch.ca</p>
+</footer>
