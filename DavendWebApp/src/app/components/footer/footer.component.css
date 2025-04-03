@@ -18,3 +18,17 @@
     text-decoration: none;
   }
   
+  @media (max-width: 768px) {
+    .custom-footer {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 1.5rem;
+    }
+  
+    .footer-left,
+    .footer-right {
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+  }
+  

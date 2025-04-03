@@ -2,15 +2,26 @@
 
   <div class="landing-container">
     <h1>Welcome to Our Store</h1>
-    <p>Discover the best products we have to offer. Log in to manage inventory.</p>
+    <p>Discover the best products we have to offer.</p>
 
-    <div class="search-bar">
-      <input 
-        type="text" 
-        placeholder="Search products..." 
-        [(ngModel)]="searchTerm"
-        (input)="filterProducts()" 
-      >
+    <div class="filter-bar">
+      <!-- Search -->
+      <div class="search-bar">
+        <input 
+          type="text" 
+          placeholder="Search products..." 
+          [(ngModel)]="searchTerm"
+          (input)="filterProducts()" 
+        >
+      </div>
+    
+      <!-- Dropdown filter (non-functional for now) -->
+      <select [(ngModel)]="selectedFilter" (change)="onFilterChange()" class="filter-dropdown">
+        <option value="" disabled selected hidden>Sort By</option>
+        <option value="price-asc">Price: Low to High</option>
+        <option value="price-desc">Price: High to Low</option>
+        <option value="qty">Quantity Available</option>
+      </select>
     </div>
   
     <h2>Available Products</h2>
