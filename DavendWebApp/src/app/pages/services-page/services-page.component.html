@@ -1,73 +1,77 @@
 <app-header></app-header>
 
 <div class="services-page-wrapper">
-
-  <!-- Page Title / Intro (Optional) -->
+  <!-- Hero -->
   <div class="services-hero">
     <h1>Our Services</h1>
+    <p>Explore our core offerings tailored to meet your precision needs.</p>
   </div>
 
-  <!-- Services Grid -->
+  <!-- Grid layout restored -->
   <div class="services-grid">
-    <!-- Left Column: Service Descriptions -->
+    
+    <!-- LEFT: Services List with alternating layout -->
     <div class="services-list">
-      <!-- Surface Grinding -->
-      <section class="service-item">
-        <img src="assets/images/surface-grinding.jpg" alt="Surface Grinding" />
-        <h2>Surface Grinding</h2>
-        <p>
-          Our precision surface grinding services deliver high-quality
-          finishes on a wide range of materials, ensuring accuracy for
-          critical manufacturing needs.
-        </p>
+      <!-- Service 1 -->
+      <section class="service-item row reverse">
+        <div class="service-text">
+          <h2>Surface Grinding</h2>
+          <p>
+            Our precision surface grinding services deliver high-quality finishes on a wide range of materials, ensuring accuracy for critical manufacturing needs.
+          </p>
+        </div>
+        <div class="service-img">
+          <img src="assets/images/surface-grinding.png" alt="Surface Grinding" />
+        </div>
       </section>
 
-      <!-- Centerless Grinding -->
-      <section class="service-item">
-        <img src="assets/images/centerless-grinding.jpg" alt="Centerless Grinding" />
-        <h2>Centerless Grinding</h2>
-        <p>
-          We offer centerless grinding solutions that enable us to quickly
-          and accurately process cylindrical parts of various diameters.
-        </p>
+      <div class="section-divider"></div>
+
+      <!-- Service 2 - Centerless Grinding (Image LEFT this time) -->
+      <section class="service-item row">
+        <div class="service-text">
+          <h2>Centerless Grinding</h2>
+          <p>
+            We offer centerless grinding solutions that enable us to quickly and accurately
+            process cylindrical parts of various diameters. We offer centerless grinding solutions that enable us to quickly and accurately
+            process cylindrical parts of various diameters.
+          </p>
+        </div>
+        <div class="service-img">
+          <img src="assets/images/centerless-grinding.png" alt="Centerless Grinding" />
+        </div>
       </section>
 
-      <!-- Punch and Die Manufacturing -->
-      <section class="service-item">
-        <img src="assets/images/punch-and-die.jpg" alt="Punch and Die Manufacturing" />
-        <h2>Punch and Die Manufacturing</h2>
-        <p>
-          Our punch and die manufacturing services provide high-precision
-          tooling for metal forming applications. From concept to final
-          product, we work with you to create reliable, long-lasting dies.
-        </p>
+      <div class="section-divider"></div>
+
+      <!-- Service 3 -->
+      <section class="service-item row reverse">
+        <div class="service-text">
+          <h2>Punch and Die Manufacturing</h2>
+          <p>
+            Our punch and die manufacturing services provide high-precision tooling for metal forming applications. From concept to final product, we work with you to create reliable, long-lasting dies.
+          </p>
+        </div>
+        <div class="service-img">
+          <img src="assets/images/punch-and-die.png" alt="Punch and Die Manufacturing" />
+        </div>
       </section>
     </div>
 
-    <!-- Right Column: Featured Service / CTA -->
+    <!-- RIGHT: CTA -->
     <div class="featured-service">
       <div class="featured-service-content">
-        <img
-          src="assets/images/punch-die-machine.jpg"
-          alt="Punch and Die Machine"
-          class="featured-image"
-        />
-        <h2>Punch and Die Manufacturing</h2>
+        <img src="assets/images/punch-and-die-machine.png" alt="Punch and Die Machine" class="featured-image" />
+        <h2>Featured: Punch and Die Manufacturing</h2>
         <p>
-          Our punch and die manufacturing process is designed to meet the most
-          demanding production needs. With years of experience, we can handle
-          complex designs and deliver consistent, quality results.
+          From simple dies to complex precision tools, we deliver top-tier punch and die solutions tailored to your design.
         </p>
-        <p>
-          Interested in requesting a quote or scheduling a service?
-          Click below to fill out our application form.
-        </p>
-        <!-- Update the routerLink path to match your actual route -->
+        <p>Need a quote or consultation? Tap below to submit a request.</p>
         <a class="apply-btn" routerLink="/service-request">Apply for Service</a>
       </div>
     </div>
-  </div>
 
+  </div>
 </div>
 
 <app-footer></app-footer>

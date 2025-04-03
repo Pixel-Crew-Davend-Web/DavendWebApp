@@ -13,7 +13,7 @@
     <div class="product-details">
       <h2>{{ item.name }}</h2>
       <p>{{ item.description }}</p>
-      <p>Price per unit: ${{ item.price.toFixed(2) }}</p>
+      <p *ngIf="item.price != null">Price per unit: ${{ item.price.toFixed(2) }}</p>
       <p>Quantity: {{ item.qty }}</p>
       <p>Total for this product: ${{ item.totalPrice.toFixed(2) }}</p>
   

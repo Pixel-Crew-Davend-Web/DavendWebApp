@@ -11,6 +11,7 @@ export class ProductsPageComponent {
   filteredProducts: any[] = []; // Filtered product list
   searchTerm: string = ''; // Search term
   productQty: number = 1; // Product quantity
+  selectedFilter: string | null = null; // NOT YET IMPLEMENTED
 
   constructor(private productService: ProductService) {}
 
@@ -33,6 +34,11 @@ export class ProductsPageComponent {
         inputQty: product.inputQty || 1
       }));
   }  
+
+  // NOT YET IMPLEMENTED
+  onFilterChange() {
+    console.log('Filter changed:', this.selectedFilter);
+  }
 
   getImageUrl(fileName: string): string {
     return `https://tqeazhwfhejsjgrtxhcw.supabase.co/storage/v1/object/public/product-images/${fileName}`;
