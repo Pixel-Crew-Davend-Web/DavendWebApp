@@ -10,7 +10,7 @@ class MockProductService {
   ]));
 }
 
-fdescribe('ProductsPageComponent', () => {
+describe('ProductsPageComponent', () => {
   let component: ProductsPageComponent;
   let fixture: ComponentFixture<ProductsPageComponent>;
   let mockProductService: any;
