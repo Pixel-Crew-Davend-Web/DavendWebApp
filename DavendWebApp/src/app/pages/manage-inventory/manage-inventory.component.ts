@@ -103,7 +103,7 @@ export class ManageInventoryComponent implements OnInit {
   }
   
   getImageUrl(fileName: string): string {
-    return `https://tqeazhwfhejsjgrtxhcw.supabase.co/storage/v1/object/public/product-images/${fileName}`;
+    return `https://oitjgpsicvzplwsbmxyo.supabase.co/storage/v1/object/public/product-images/${fileName}`; // CHANGED URL TO oitjgpsicvzplwsbmxyo MIGHT NEED TO CHANGE OTHER FUNCTIONS
   }  
 
   async deleteProduct(id: string) {
