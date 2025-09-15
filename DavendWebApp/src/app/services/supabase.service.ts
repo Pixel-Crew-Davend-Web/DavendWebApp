@@ -1,16 +1,19 @@
 import { Injectable } from '@angular/core';
+import { environment } from '../../environments/environment';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 @Injectable({
   providedIn: 'root',
 })
+
 export class SupabaseService {
   private supabase: SupabaseClient;
 
+  // For Production
   constructor() {
     this.supabase = createClient(
-      'https://tqeazhwfhejsjgrtxhcw.supabase.co', // Supabase URL
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWF6aHdmaGVqc2pncnR4aGN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE0NjI4MzAsImV4cCI6MjA1NzAzODgzMH0.ios_a1uR880DaiTj07_lfFPYeuNjzR6kRcATFemvsC8' // Supabase Key
+      environment.supabaseURL, // Supabase URL
+      environment.supabaseKey // Supabase Key
     );
   }
 
