@@ -16,6 +16,7 @@ import { ContactPageComponent } from './pages/contact-page/contact-page.componen
 import { CheckoutPageComponent } from './pages/checkout-page/checkout-page.component';
 import { ServiceRequestPageComponent } from './pages/service-request-page/service-request-page.component';
 import { provideHttpClient } from '@angular/common/http';
+import { SuccessComponent } from './pages/payment-success/payment-success.component';
 
 
 @NgModule({
@@ -31,7 +32,8 @@ import { provideHttpClient } from '@angular/common/http';
     ServicesPageComponent,
     ContactPageComponent,
     CheckoutPageComponent,
-    ServiceRequestPageComponent
+    ServiceRequestPageComponent,
+    SuccessComponent
   ],
   imports: [
     BrowserModule,

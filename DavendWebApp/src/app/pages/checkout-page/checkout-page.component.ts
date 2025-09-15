@@ -1,5 +1,11 @@
 import { Component, OnInit } from '@angular/core';
+import { FormBuilder, Validators } from '@angular/forms';
 import { ProductService } from '../../services/product.service';
+import { CartService } from '../../services/cart.service';
+import { OrderService } from '../../services/order.service';
+import { PaymentService, PaymentMethod, PaymentResult } from '../../services/payment.service';
+import { EmailService } from '../../services/email.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-checkout-page',
@@ -9,8 +15,32 @@ import { ProductService } from '../../services/product.service';
 export class CheckoutPageComponent implements OnInit {
   cartItems: any[] = [];
   total: number = 0;
+  isProcessing = false;
+  errorMsg = '';
+  pendingInfo: PaymentResult | null = null;
 
-  constructor(private productService: ProductService) {}
+  // Strongly typed form with default method
+checkoutForm = this.fb.group({
+  fullName: ['', Validators.required],
+  email: ['', [Validators.required, Validators.email]],
+  phone: [''],
+  address: ['', Validators.required],
+  city: ['', Validators.required],
+  postalCode: ['', Validators.required],
+  method: ['CARD' as PaymentMethod, Validators.required],
+  message: ['']
+});
+
+
+  constructor(
+    private fb: FormBuilder,
+    private productService: ProductService,
+    private cartService: CartService,
+    private orderService: OrderService,
+    private paymentService: PaymentService,
+    private emailService: EmailService,
+    private router: Router
+  ) {}
 
   async ngOnInit() {
     const localCart = JSON.parse(localStorage.getItem('cart') || '[]');
@@ -18,7 +48,6 @@ export class CheckoutPageComponent implements OnInit {
     for (const item of localCart) {
       try {
         const product = await this.productService.getProductByID(item.id);
-
         const fullProduct = {
           id: item.id,
           name: product.name,
@@ -27,16 +56,13 @@ export class CheckoutPageComponent implements OnInit {
           price: product.price,
           qty: item.qty,
           totalPrice: product.price * item.qty,
-          removeQty: 1 // default value for removing input
+          removeQty: 1
         };        
-
         this.cartItems.push(fullProduct);
-        this.total = this.roundToTwo(this.total + fullProduct.totalPrice);
       } catch (error) {
         console.error(`Failed to fetch product with ID ${item.id}:`, error);
       }
     }
-
     this.recalculateTotal();
   }
 
@@ -54,10 +80,6 @@ export class CheckoutPageComponent implements OnInit {
     return `https://tqeazhwfhejsjgrtxhcw.supabase.co/storage/v1/object/public/product-images/${fileName}`;
   }  
 
-  clicked() {
-    console.log('Clicked!');
-  }
-
   removeFromCart(id: string, qtyToRemove: number) {
     const index = this.cartItems.findIndex(item => item.id === id);
     if (index === -1) return;
@@ -65,22 +87,67 @@ export class CheckoutPageComponent implements OnInit {
     const item = this.cartItems[index];
   
     if (qtyToRemove >= item.qty) {
-      this.total = this.roundToTwo(this.total - item.totalPrice);
       this.cartItems.splice(index, 1);
     } else {
       item.qty -= qtyToRemove;
       item.totalPrice = this.roundToTwo(item.qty * item.price);
-      this.total = this.roundToTwo(this.total - item.price * qtyToRemove);
     }
 
     this.recalculateTotal();
-  
-    // Update localStorage
+
     const updatedCart = this.cartItems.map(item => ({
       id: item.id,
       qty: item.qty
     }));
     localStorage.setItem('cart', JSON.stringify(updatedCart));
   }
-  
+
+async payNow() {
+  this.isProcessing = true;
+  this.errorMsg = '';
+  this.pendingInfo = null;
+
+  try {
+    const customer = this.checkoutForm.value;
+    const amount = this.total;
+
+    // Fallback default
+    const paymentMethod: PaymentMethod = customer.method ?? 'CARD';
+
+    // Step 1: Create draft order
+    const order = await this.orderService.createOrderDraft(
+      this.cartItems,
+      {
+        fullName: customer.fullName!,
+        email: customer.email!,
+        phone: customer.phone || '',
+        address: customer.address!,
+        city: customer.city!,
+        postalCode: customer.postalCode!,
+        message: customer.message || ''
+      },
+      paymentMethod,
+      amount
+    );
+
+    // Step 2: Attempt payment
+    const result = await this.paymentService.charge(order.id, amount, paymentMethod);
+
+    if (result.status === 'success') {
+      await this.orderService.finalizeOrder(order.id, result.txnId!);
+      await this.emailService.sendReceipt(order.id);
+      this.router.navigate(['/success', order.id]);
+    } else if (result.status === 'pending') {
+      this.pendingInfo = result;
+      await this.emailService.sendEtransferInstructions(order.id);
+    } else {
+      this.errorMsg = result.message || 'Payment failed. Please try again.';
+    }
+  } catch (err: any) {
+    this.errorMsg = 'Something went wrong. Please try again.';
+  } finally {
+    this.isProcessing = false;
+  }
+}
+
 }

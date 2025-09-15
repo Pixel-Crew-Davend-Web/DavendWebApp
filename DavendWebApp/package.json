@@ -4,9 +4,10 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build",
+    "build": "node scripts/generate-env.mjs && ng build --configuration production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
+
   },
   "private": true,
   "dependencies": {
