@@ -14,7 +14,42 @@
       <input type="text" placeholder="Description" [(ngModel)]="newProduct.description">
       <input type="number" placeholder="Price" [(ngModel)]="newProduct.price">
       <input type="number" placeholder="Quantity" [(ngModel)]="newProduct.qty">
-      <input type="file" (change)="handleImageUpload($event)">
+      <input 
+        type="file" 
+        accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
+        (change)="handleImageUpload($event)">
+
+        <!-- Image Preview -->
+         <div *ngIf="addPreviewUrl" class="preview-wrap">
+            <div *ngIf="!addPreviewIsPdf">
+              <img [src]="addPreviewUrl" alt="Selected Image Preview" class="preview-img" />
+            </div>
+            <div *ngIf="addPreviewIsPdf" class="pdf-preview">
+              <embed [src]="addPreviewTrustedUrl" type="application/pdf" class="pdf-embed" />
+            </div>
+
+            <div class="preview-actions">
+              <button type="button" (click)="triggerAddReupload()">Choose different file</button>
+              <button type="button" (click)="cancelAddImage()">Cancel image</button>
+            </div>
+         </div>
+
+         <!-- warning if no image is selected on submit -->
+          <div *ngIf="showAddImageWarning" class="warn">
+            You’re creating a product without an image. Continue anyway?
+            <button type="button" (click)="proceedWithoutImage()">Yes, continue</button>
+            <button type="button" (click)="showAddImageWarning=false">Cancel</button>
+          </div>
+
+          <!-- Hidden re-upload input (triggered by button above) -->
+          <input
+            #addReuploadInput
+            type="file"
+            accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
+            (change)="handleImageUpload($event)"
+            style="display:none"
+          />
+
       <button (click)="addProduct()">Add Product</button>
   </div>
 
@@ -55,7 +90,34 @@
     <input type="number" [(ngModel)]="editingProduct.qty">
 
     <!-- Optional new image upload -->
-    <input type="file" (change)="handleEditImageUpload($event)">
+    <input 
+      type="file" 
+      accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
+      (change)="handleEditImageUpload($event)">
+
+      <!-- Edit Image Preview -->
+      <div *ngIf="editPreviewUrl" class="preview-wrap">
+        <div *ngIf="!editPreviewIsPdf">
+          <img [src]="editPreviewUrl" alt="Selected image preview" class="preview-img" />
+        </div>
+        <div *ngIf="editPreviewIsPdf" class="pdf-preview">
+          <embed [src]="editPreviewTrustedUrl" type="application/pdf" class="pdf-embed" />
+        </div>
+
+        <div class="preview-actions">
+          <button type="button" (click)="triggerEditReupload()">Choose different file</button>
+          <button type="button" (click)="cancelEditImage()">Cancel image</button>
+        </div>
+      </div>
+
+      <!-- Hidden re-upload input -->
+      <input
+        #editReuploadInput
+        type="file"
+        accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
+        (change)="handleEditImageUpload($event)"
+        style="display:none"
+      />
 
     <button (click)="saveEdit()">Save</button>
     <button (click)="editingProduct = null">Cancel</button>
