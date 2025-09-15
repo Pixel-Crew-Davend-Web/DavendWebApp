@@ -118,4 +118,36 @@ export class SupabaseService {
       throw error;
     }
   }
+
+  private readonly allowedTypes = new Set<string>(['image/jpeg', 'application/pdf']);
+
+async uploadProductAsset(file: File): Promise<string> {
+  if (!this.allowedTypes.has(file.type)) {
+    throw new Error('Only JPG/JPEG or PDF files are allowed.');
+  }
+
+  // Optional: validate extension too (defense-in-depth)
+  const lower = (file.name || '').toLowerCase();
+  if (!(lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.pdf'))) {
+    throw new Error('Only .jpg, .jpeg, or .pdf files are allowed.');
+  }
+
+  const ext = lower.substring(lower.lastIndexOf('.'));
+  const filename = `${crypto.randomUUID()}${ext}`; // ensure unique
+
+  // Upload to your Supabase bucket, e.g., 'product-assets'
+  const { data, error } = await this.supabase
+    .storage
+    .from('product-images')
+    .upload(filename, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type,
+    });
+
+  if (error) throw error;
+
+  // Return the storage path you use as imageURL in DB
+  return data?.path || filename;
+}
 }
