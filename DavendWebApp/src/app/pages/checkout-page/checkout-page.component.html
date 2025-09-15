@@ -24,10 +24,10 @@
     </div>
   </div>  
 
-  <div class="subtotal" *ngIf="cartItems.length >= 0">
+  <div class="subtotal" *ngIf="cartItems.length > 0">
     <h2>Subtotal: ${{ total.toFixed(2) }}</h2>
   </div>
-<form [formGroup]="checkoutForm" *ngIf="cartItems.length >= 0" class="quote-form">
+<form [formGroup]="checkoutForm" *ngIf="cartItems.length > 0" class="quote-form">
   <h2>Product Quote / Request Form</h2>
 
   <!-- Full Name + Email -->
