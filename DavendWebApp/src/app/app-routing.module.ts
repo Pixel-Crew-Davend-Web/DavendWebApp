@@ -10,6 +10,7 @@ import { ServicesPageComponent } from './pages/services-page/services-page.compo
 import { ContactPageComponent } from './pages/contact-page/contact-page.component';
 import { CheckoutPageComponent } from './pages/checkout-page/checkout-page.component';
 import { ServiceRequestPageComponent } from './pages/service-request-page/service-request-page.component';
+import { SuccessComponent } from './pages/payment-success/payment-success.component';
 
 const routes: Routes = [
   { path: '', component: LandingPageComponent },
@@ -21,7 +22,9 @@ const routes: Routes = [
   { path: 'manage-inventory', component: ManageInventoryComponent, canActivate: [AuthGuard] },
   { path: 'login', component: AdminLoginComponent },
   { path: 'register', component: AdminLoginComponent },
-  { path: 'checkout', component: CheckoutPageComponent }
+  { path: 'checkout', component: CheckoutPageComponent },
+    { path: 'success/:id', component: SuccessComponent },
+
 ];
 
 @NgModule({

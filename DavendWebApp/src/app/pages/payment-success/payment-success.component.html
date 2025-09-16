@@ -1,0 +1,49 @@
+<app-header></app-header>
+    <div class="full-width-image">
+      <img src="assets/bolts.png" alt="Banner Image">
+  
+      <!-- Bottom Overlay Banner with Text -->
+      <div class="image-overlay-bottom">
+        <div class="overlay-text" >
+          Thank you for your order!
+        </div>
+      </div>
+    </div>
+
+    <div class="success-container">
+  <!-- Success Icon + Message -->
+  <div class="success-header">
+    <span class="success-icon">✔</span>
+    <h1>Order Placed – Payment Successful</h1>
+  </div>
+  <p>
+    Thanks for your payment, a confirmation email has been sent to
+    <strong>{{ order?.customer.email }}</strong>
+  </p>
+
+  <!-- Order + Shipping Summary -->
+  <div class="summary-box">
+    <div class="order-summary">
+      <h3>Order Summary:</h3>
+      <p><strong>Order Number:</strong> {{ order?.id }}</p>
+      <p><strong>Date:</strong> {{ order?.date | date: 'longDate' }}</p>
+      <p><strong>Payment Method:</strong> {{ order?.method }}</p>
+      <p><strong>Total Paid:</strong> {{ order?.amount | currency: 'CAD' }}</p>
+    </div>
+
+    <div class="shipping-info">
+      <h3>Shipping Information:</h3>
+      <p>{{ order?.customer.fullName }}</p>
+      <p>{{ order?.customer.phone }}</p>
+      <p>{{ order?.customer.address }}</p>
+      <p>{{ order?.customer.city }}, {{ order?.customer.postalCode }}</p>
+    </div>
+  </div>
+
+  <!-- Back to Home -->
+  <div class="actions">
+    <a routerLink="/" class="btn">Back to Home</a>
+  </div>
+</div>
+
+<app-footer></app-footer>
