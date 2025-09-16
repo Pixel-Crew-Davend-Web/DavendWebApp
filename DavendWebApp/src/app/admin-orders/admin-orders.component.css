@@ -1,0 +1,233 @@
+.orders-container {
+    padding: 20px;
+    font-family: 'Inter', 'Roboto', sans-serif;
+    color: #1f2937;
+    background: #f9fafb;
+    min-height: 100vh;
+  }
+  
+  .orders-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  
+  .orders-header h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+  
+  .controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  
+  .controls input,
+  .controls select,
+  .controls button {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 0.9rem;
+  }
+  
+  .controls button.export {
+    background: #10b981;
+    color: #fff;
+    border: none;
+  }
+  
+  .controls button.home {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+  }
+  
+  .controls button.logout {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+  }
+  
+  .orders-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  
+  .orders-table th {
+    background: #f3f4f6;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  
+  .orders-table td {
+    padding: 12px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 0.9rem;
+  }
+  
+  .cust-name {
+    font-weight: 500;
+  }
+  
+  .cust-meta {
+    font-size: 0.8rem;
+    color: #6b7280;
+  }
+  
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.8rem;
+  }
+  
+  .badge.pending {
+    background: #fef9c3;
+    color: #92400e;
+  }
+  
+  .badge.completed {
+    background: #d1fae5;
+    color: #065f46;
+  }
+  
+  .badge.cancelled {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  
+  .actions button {
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    margin-right: 4px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    color: #fff;
+  }
+  
+  .actions .view {
+    background: #2563eb;
+  }
+  
+  .actions .edit {
+    background: #1d4ed8;
+  }
+  
+  .actions .save {
+    background: #16a34a;
+  }
+  
+  .actions .cancel {
+    background: #dc2626;
+  }
+  
+  .actions button:hover {
+    opacity: 0.9;
+  }
+  
+  .edit-controls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  
+  .edit-controls select {
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+  
+  .history {
+    font-size: 0.8rem;
+    color: #374151;
+    max-width: 280px;
+    white-space: normal;
+    word-wrap: break-word;
+  }
+  
+  /* toast */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 18px;
+    border-radius: 6px;
+    font-weight: 500;
+    animation: fadeIn 0.2s ease;
+  }
+  
+  .toast.success {
+    background: #10b981;
+    color: #fff;
+  }
+  
+  .toast.error {
+    background: #ef4444;
+    color: #fff;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* modal */
+  .modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .modal-content {
+    background: #fff;
+    border-radius: 10px;
+    width: 400px;
+    max-width: 95%;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .modal-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+  
+  .modal-header .close {
+    border: none;
+    background: transparent;
+    font-size: 1.2rem;
+    cursor: pointer;
+  }
+  
+  .modal-body p {
+    margin: 8px 0;
+    font-size: 0.9rem;
+  }
+  
+  .modal-footer {
+    text-align: right;
+  }
+  

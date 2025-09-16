@@ -11,20 +11,21 @@ import { ContactPageComponent } from './pages/contact-page/contact-page.componen
 import { CheckoutPageComponent } from './pages/checkout-page/checkout-page.component';
 import { ServiceRequestPageComponent } from './pages/service-request-page/service-request-page.component';
 import { SuccessComponent } from './pages/payment-success/payment-success.component';
+import { AdminOrdersComponent } from './admin-orders/admin-orders.component';
 
 const routes: Routes = [
   { path: '', component: LandingPageComponent },
-  { path: "about", component: AboutPageComponent},
-  { path: "products", component: ProductsPageComponent},
-  { path: "services", component: ServicesPageComponent},
-  { path: "service-request", component: ServiceRequestPageComponent},
-  { path: "contact", component: ContactPageComponent},
+  { path: 'about', component: AboutPageComponent },
+  { path: 'products', component: ProductsPageComponent },
+  { path: 'services', component: ServicesPageComponent },
+  { path: 'service-request', component: ServiceRequestPageComponent },
+  { path: 'contact', component: ContactPageComponent },
   { path: 'manage-inventory', component: ManageInventoryComponent, canActivate: [AuthGuard] },
+  { path: 'orders', component: AdminOrdersComponent, canActivate: [AuthGuard] },
   { path: 'login', component: AdminLoginComponent },
   { path: 'register', component: AdminLoginComponent },
   { path: 'checkout', component: CheckoutPageComponent },
-    { path: 'success/:id', component: SuccessComponent },
-
+  { path: 'success/:id', component: SuccessComponent },
 ];
 
 @NgModule({
