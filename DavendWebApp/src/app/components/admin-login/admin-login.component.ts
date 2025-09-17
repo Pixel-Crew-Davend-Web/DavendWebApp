@@ -13,6 +13,12 @@ export class AdminLoginComponent {
   logIn: boolean = true;
   isLoggedIn: boolean = false;
 
+  // UI state
+  showPassword = false;
+  isLoading = false;
+  message?: string;
+  messageType: 'error' | 'info' = 'info';
+
   constructor(private adminAuthService: AdminAuthService) {
     this.adminAuthService.isLoggedIn().subscribe(status => {
       this.isLoggedIn = status;
@@ -34,21 +40,44 @@ export class AdminLoginComponent {
     }
   }
 
-  async signUp() {
+  async login() {
+  try {
+    this.isLoading = true;
+    await this._doLogin(); // your existing logic
+    this.message = undefined;
+  } catch (e: any) {
+    this.messageType = 'error';
+    this.message = e?.message || 'Login failed. Please try again.';
+  } finally {
+    this.isLoading = false;
+  }
+}
+
+async signUp() {
+  try {
+    this.isLoading = true;
+    await this._doSignUp(); // your existing logic
+    this.messageType = 'info';
+    this.message = 'Admin created successfully.';
+  } catch (e: any) {
+    this.messageType = 'error';
+    this.message = e?.message || 'Sign up failed. Please try again.';
+  } finally {
+    this.isLoading = false;
+  }
+}
+
+  async _doSignUp() {
     const success = await this.adminAuthService.signUpAdmin(this.username, this.email, this.password);
-    if (success) {
-      alert('Admin registered successfully!');
-    } else {
-      alert('Signup failed. Try a different username.');
+    if (!success) {
+      throw new Error('Signup failed. Try a different username.');
     }
   }
 
-  async login() {
+  async _doLogin() {
     const success = await this.adminAuthService.loginAdmin(this.email, this.password);
-    if (success) {
-      alert('Login successful!');
-    } else {
-      alert('Invalid username or password.');
+    if (!success) {
+      throw new Error('Login failed. Check your credentials.');
     }
   }
 

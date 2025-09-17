@@ -1,33 +1,172 @@
-<div class="admin-container">
-    <!-- Navigation Buttons -->
-    <div>
-        <button (click)="changeMode(true)">Login</button>
-        <button (click)="changeMode(false)">Sign Up</button>
-        <button routerLink="/">Go Back to Main Page</button>
+<div class="auth-shell">
+  <div class="auth-card">
+
+    <!-- Brand / Header -->
+    <div class="brand">
+      <div class="logo-dot"></div>
+      <h1>Admin Portal</h1>
+      <p class="subtitle">Manage products & orders securely</p>
+    </div>
+
+    <!-- Mode Tabs -->
+    <div class="tabs" role="tablist" aria-label="Auth mode" *ngIf="!isLoggedIn">
+      <button
+        class="tab"
+        [class.active]="logIn"
+        (click)="changeMode(true)"
+        role="tab"
+        [attr.aria-selected]="logIn"
+        >
+        Login
+        </button>
+      <button
+        class="tab"
+        [class.active]="!logIn"
+        (click)="changeMode(false)"
+        role="tab"
+        [attr.aria-selected]="!logIn"
+        >
+        Sign Up
+        </button>
     </div>
 
     <!-- Login Form -->
-    <div *ngIf="!isLoggedIn && logIn" class="login-form">
-        <h2>Admin Login</h2>
-        <input type="text" placeholder="Email" [(ngModel)]="email">
-        <input type="password" placeholder="Password" [(ngModel)]="password">
-        <button (click)="login()">Login</button>
-    </div>
+    <form
+      *ngIf="!isLoggedIn && logIn"
+      class="form"
+      (ngSubmit)="login()"
+      autocomplete="on"
+    >
+      <h2 class="form-title">Welcome back</h2>
+
+      <label class="field">
+        <span>Email</span>
+        <input
+          type="email"
+          placeholder="you@company.com"
+          [(ngModel)]="email"
+          name="loginEmail"
+          required
+        />
+      </label>
+
+      <label class="field password-field">
+        <span>Password</span>
+        <input
+          [type]="showPassword ? 'text' : 'password'"
+          placeholder="••••••••"
+          [(ngModel)]="password"
+          name="loginPassword"
+          required
+        />
+        <button
+          type="button"
+          class="icon-btn"
+          (click)="showPassword = !showPassword"
+          [attr.aria-pressed]="showPassword"
+          aria-label="Toggle password visibility"
+        >
+          {{ showPassword ? '🙈' : '👁️' }}
+        </button>
+      </label>
+
+      <button
+        class="primary-btn"
+        type="submit"
+        [disabled]="!email || !password || isLoading"
+        (click)="login()"
+      >
+        <span *ngIf="!isLoading">Login</span>
+        <span *ngIf="isLoading" class="spinner"></span>
+      </button>
+
+      <button class="link-btn" routerLink="/" type="button">
+        ← Back to site
+      </button>
+    </form>
 
     <!-- Sign Up Form -->
-    <div *ngIf="!isLoggedIn && !logIn" class="signup-form">
-        <h2>Admin Sign Up</h2>
-        <input type="text" placeholder="Username" [(ngModel)]="username">
-        <input type="text" placeholder="Email" [(ngModel)]="email">
-        <input type="password" placeholder="Password" [(ngModel)]="password">
-        <button (click)="signUp()">Sign Up</button>
+    <form
+      *ngIf="!isLoggedIn && !logIn"
+      class="form"
+      (ngSubmit)="signUp()"
+      autocomplete="on"
+    >
+      <h2 class="form-title">Create admin account</h2>
+
+      <label class="field">
+        <span>Username</span>
+        <input
+          type="text"
+          placeholder="e.g. admin_daniel"
+          [(ngModel)]="username"
+          name="signupUsername"
+          required
+        />
+      </label>
+
+      <label class="field">
+        <span>Email</span>
+        <input
+          type="email"
+          placeholder="you@company.com"
+          [(ngModel)]="email"
+          name="signupEmail"
+          required
+        />
+      </label>
+
+      <label class="field password-field">
+        <span>Password</span>
+        <input
+          [type]="showPassword ? 'text' : 'password'"
+          placeholder="Minimum 8 characters"
+          [(ngModel)]="password"
+          name="signupPassword"
+          required
+        />
+        <button
+          type="button"
+          class="icon-btn"
+          (click)="showPassword = !showPassword"
+          [attr.aria-pressed]="showPassword"
+          aria-label="Toggle password visibility"
+        >
+          {{ showPassword ? '🙈' : '👁️' }}
+        </button>
+      </label>
+
+      <button
+        class="primary-btn"
+        type="submit"
+        [disabled]="!username || !email || !password || isLoading"
+        (click)="signUp()"
+      >
+        <span *ngIf="!isLoading">Sign Up</span>
+        <span *ngIf="isLoading" class="spinner"></span>
+      </button>
+
+      <button class="link-btn" routerLink="/" type="button">
+        ← Back to site
+      </button>
+    </form>
+
+    <!-- Logged In State -->
+    <div *ngIf="isLoggedIn" class="logged-in">
+      <h2>Welcome, Admin 👋</h2>
+      <p class="hint">Choose a section to manage</p>
+
+      <div class="actions">
+        <button class="primary-btn" routerLink="/manage-inventory">Manage Inventory</button>
+        <button class="primary-btn" routerLink="/orders">Manage Orders</button>
+        <button class="secondary-btn" (click)="logout()">Logout</button>
+        <button class="link-btn" routerLink="/">← Back to site</button>
+      </div>
     </div>
 
-    <!-- Admin Logged In Section -->
-    <div *ngIf="isLoggedIn" class="welcome-admin">
-        <h2>Welcome, Admin!</h2>
-        <button (click)="logout()">Logout</button>
-        <button routerLink="/manage-inventory">Manage Inventory</button>
-        <button routerLink="/orders">Manage Orders</button>
+    <!-- Optional error/success toast area -->
+    <div *ngIf="message" class="toast" [class.error]="messageType === 'error'">
+      {{ message }}
     </div>
+  </div>
 </div>

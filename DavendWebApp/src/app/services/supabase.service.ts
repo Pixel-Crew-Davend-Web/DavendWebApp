@@ -34,6 +34,12 @@ export class SupabaseService {
 
   // Admin Login
   async loginAdmin(email: string, password: string) {
+
+    if (!email || !password || email.trim() === '' || password.trim() === '') {
+      console.error('Login Failed: Email and password are required.');
+      return false;
+    }
+
     const { data, error } = await this.supabase
       .from('AdminUsers')
       .select('*')
