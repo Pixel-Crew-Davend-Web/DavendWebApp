@@ -59,7 +59,7 @@ export class ServiceRequestPageComponent {
     form.append('selectedService', this.selectedService);
     form.append('designFile', this.requestForm.get('designFile')?.value);
 
-    this.http.post('https://davendwebappservice.onrender.com/send-email', form)
+    this.http.post('https://davendwebappservice.onrender.com/service-send-email', form)
       .subscribe({
         next: (res: any) => {
           alert('Email sent!');

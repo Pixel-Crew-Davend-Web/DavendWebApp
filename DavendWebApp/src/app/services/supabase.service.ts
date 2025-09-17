@@ -85,7 +85,7 @@ export class SupabaseService {
   async addProduct(name: string, description: string, price: number, qty: number, imageURL: string) {
     const { data, error } = await this.supabase
       .from('Products')
-      .insert([{ name, description, qty, imageURL }]);
+      .insert([{ name, description, price, qty, imageURL }]);
     
     if (error) {
       console.error('Error adding product:', error.message);
