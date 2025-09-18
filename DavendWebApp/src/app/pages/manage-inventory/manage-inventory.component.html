@@ -1,101 +1,214 @@
-<div class="inventory-container">
-  <h2>Manage Inventory</h2>
+<div class="inv-shell">
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo-dot"></span>
+      <h1>Manage Inventory</h1>
+    </div>
 
-  <!-- Navigation Buttons -->
-  <div class="nav-buttons">
-      <button routerLink="/" class="home-btn">🏠 Home</button>
-      <button (click)="logout()" class="logout-btn">🚪 Logout</button>
-  </div>
+    <div class="nav-buttons">
+      <button routerLink="/" class="btn btn-secondary">🏠 Home</button>
+      <button routerLink="/login" class="btn btn-secondaryT">🔐 Admin Dashboard</button>
+      <button (click)="logout()" class="btn btn-danger">🚪 Logout</button>
+    </div>
+  </header>
 
-  <!-- Add Product Form -->
-  <div class="add-product">
-      <h3>Add Product</h3>
-      <input type="text" placeholder="Name" [(ngModel)]="newProduct.name">
-      <input type="text" placeholder="Description" [(ngModel)]="newProduct.description">
-      <input type="number" placeholder="Price" [(ngModel)]="newProduct.price">
-      <input type="number" placeholder="Quantity" [(ngModel)]="newProduct.qty">
-      <input 
-        type="file" 
+  <main class="content">
+    <!-- Add Product Card -->
+    <section class="card add-product">
+      <div class="card-head">
+        <h3>Add Product</h3>
+        <p class="muted">Create a new product and optionally attach an image or PDF spec.</p>
+      </div>
+
+      <div class="form-grid">
+      <label class="field">
+        <span>Name</span>
+        <input type="text"
+          placeholder="e.g. 10mm Hex Bolt"
+          [(ngModel)]="newProduct.name"
+          (ngModelChange)="validateAdd()"
+          [class.invalid]="!!addErrors.name"
+        />
+        <small class="err" *ngIf="addErrors.name">{{ addErrors.name }}</small>
+      </label>
+
+      <label class="field">
+        <span>Price</span>
+        <input type="number"
+          placeholder="e.g. 24.99"
+          min="0.01" step="0.01" inputmode="decimal"
+          [(ngModel)]="newProduct.price"
+          (ngModelChange)="validateAdd()"
+          [class.invalid]="!!addErrors.price"
+        />
+        <small class="err" *ngIf="addErrors.price">{{ addErrors.price }}</small>
+      </label>
+
+      <label class="field">
+        <span>Quantity</span>
+        <input type="number"
+          placeholder="e.g. 100"
+          min="0" step="1" inputmode="numeric" 
+          [(ngModel)]="newProduct.qty"
+          (ngModelChange)="validateAdd()"
+          [class.invalid]="!!addErrors.qty"
+        />
+        <small class="err" *ngIf="addErrors.qty">{{ addErrors.qty }}</small>
+      </label>
+
+      <label class="field field-span2">
+        <span>Description <em class="muted">(optional)</em></span>
+        <input type="text" placeholder="Short description" [(ngModel)]="newProduct.description" />
+      </label>
+
+      <!-- file input unchanged -->
+      <div class="field field-span2">
+        <span>Image / PDF <em class="muted">(optional)</em></span>
+        <input class="file-input" type="file"
+          accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
+          (change)="handleImageUpload($event)" />
+        <p class="hint">Accepted: JPG/JPEG or PDF</p>
+      </div>
+    </div>
+
+      <!-- Image/PDF Preview + actions -->
+      <div *ngIf="addPreviewUrl" class="preview-wrap">
+        <div *ngIf="!addPreviewIsPdf">
+          <img [src]="addPreviewUrl" alt="Selected Image Preview" class="preview-img" />
+        </div>
+        <div *ngIf="addPreviewIsPdf" class="pdf-preview">
+          <embed [src]="addPreviewTrustedUrl" type="application/pdf" class="pdf-embed" />
+        </div>
+
+        <div class="preview-actions">
+          <button type="button" class="btn btn-secondary" (click)="triggerAddReupload()">Choose different file</button>
+          <button type="button" class="btn btn-ghost" (click)="cancelAddImage()">Cancel image</button>
+        </div>
+      </div>
+
+      <!-- Warning to proceed without image -->
+      <div *ngIf="showAddImageWarning" class="callout warn">
+        <div class="callout-body">
+          <strong>No image selected.</strong> Create product without an image?
+        </div>
+        <div class="callout-actions">
+          <button type="button" class="btn btn-primary" (click)="proceedWithoutImage()">Yes, continue</button>
+          <button type="button" class="btn btn-ghost" (click)="showAddImageWarning=false">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Hidden re-upload input (kept from your TS) -->
+      <input
+        #addReuploadInput
+        type="file"
         accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
-        (change)="handleImageUpload($event)">
+        (change)="handleImageUpload($event)"
+        style="display:none"
+      />
 
-        <!-- Image Preview -->
-         <div *ngIf="addPreviewUrl" class="preview-wrap">
-            <div *ngIf="!addPreviewIsPdf">
-              <img [src]="addPreviewUrl" alt="Selected Image Preview" class="preview-img" />
-            </div>
-            <div *ngIf="addPreviewIsPdf" class="pdf-preview">
-              <embed [src]="addPreviewTrustedUrl" type="application/pdf" class="pdf-embed" />
-            </div>
+      <div class="actions">
+        <button class="btn btn-primary" (click)="addProduct()" [disabled]="!addFormValid">Add Product</button>
+      </div>
+    </section>
 
-            <div class="preview-actions">
-              <button type="button" (click)="triggerAddReupload()">Choose different file</button>
-              <button type="button" (click)="cancelAddImage()">Cancel image</button>
-            </div>
-         </div>
+    <!-- Product List -->
+    <section class="card">
+      <div class="card-head">
+        <h3>Products</h3>
+        <p class="muted" *ngIf="!products?.length">No products yet. Add your first one above.</p>
+      </div>
 
-         <!-- warning if no image is selected on submit -->
-          <div *ngIf="showAddImageWarning" class="warn">
-            You’re creating a product without an image. Continue anyway?
-            <button type="button" (click)="proceedWithoutImage()">Yes, continue</button>
-            <button type="button" (click)="showAddImageWarning=false">Cancel</button>
-          </div>
+      <div class="table-wrap" *ngIf="products?.length">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="sticky">ID</th>
+              <th class="sticky">Name</th>
+              <th class="sticky">Description</th>
+              <th class="sticky">Price</th>
+              <th class="sticky">Qty</th>
+              <th class="sticky">Image</th>
+              <th class="sticky">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let product of products">
+              <td><span class="badge">#{{ product.id }}</span></td>
+              <td class="t-left">{{ product.name }}</td>
+              <td class="t-left ellipsize" title="{{ product.description }}">{{ product.description }}</td>
+              <td>\${{ product.price }}</td>
+              <td>{{ product.qty }}</td>
+              <td>
+                <img [src]="getImageUrl(product.imageURL)" class="product-img" alt="product image" />
+              </td>
+              <td>
+                <div class="row-actions">
+                  <button (click)="editProduct(product)" class="btn btn-warning">Edit</button>
+                  <button (click)="deleteProduct(product.id)" class="btn btn-danger">Delete</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-          <!-- Hidden re-upload input (triggered by button above) -->
-          <input
-            #addReuploadInput
-            type="file"
-            accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
-            (change)="handleImageUpload($event)"
-            style="display:none"
+    <!-- Edit Product Card -->
+    <section *ngIf="editingProduct" class="card edit-product">
+      <div class="card-head">
+        <h3>Edit Product</h3>
+        <p class="muted">Update details and optionally upload a new asset.</p>
+      </div>
+
+      <div class="form-grid">
+          <label class="field">
+          <span>Name</span>
+          <input type="text"
+            [(ngModel)]="editingProduct.name"
+            (ngModelChange)="validateEdit()"
+            [class.invalid]="!!editErrors.name"
           />
+          <small class="err" *ngIf="editErrors.name">{{ editErrors.name }}</small>
+        </label>
 
-      <button (click)="addProduct()">Add Product</button>
-  </div>
+        <label class="field">
+          <span>Price</span>
+          <input type="number"
+            min="0.01" step="0.01" inputmode="decimal"
+            [(ngModel)]="editingProduct.price"
+            (ngModelChange)="validateEdit()"
+            [class.invalid]="!!editErrors.price"
+          />
+          <small class="err" *ngIf="editErrors.price">{{ editErrors.price }}</small>
+        </label>
 
-  <hr>
+        <label class="field">
+          <span>Quantity</span>
+          <input type="number"
+            min="0" step="1" inputmode="numeric" 
+            [(ngModel)]="editingProduct.qty"
+            (ngModelChange)="validateEdit()"
+            [class.invalid]="!!editErrors.qty"
+          />
+          <small class="err" *ngIf="editErrors.qty">{{ editErrors.qty }}</small>
+        </label>
 
-  <!-- Product List -->
-  <h3>Products</h3>
-  <table border="1">
-      <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Price</th>
-            <th>Quantity</th>
-            <th>Image</th>
-            <th>Actions</th>
-      </tr>
-      <tr *ngFor="let product of products">
-            <td>{{ product.id }}</td>
-            <td>{{ product.name }}</td>
-            <td>{{ product.description }}</td>
-            <td>{{ product.price }}</td>
-            <td>{{ product.qty }}</td>
-            <td><img [src]="getImageUrl(product.imageURL)" class="product-img"></td>
-            <td>
-              <button (click)="editProduct(product)" class="edit-btn">Edit</button>
-              <button (click)="deleteProduct(product.id)" class="action-btn">Delete</button>
-            </td>
-      </tr>
-  </table>
+        <label class="field field-span2">
+          <span>Description <em class="muted">(optional)</em></span>
+          <input type="text" [(ngModel)]="editingProduct.description" />
+        </label>
 
-  <!-- Edit Product Form -->
-  <div *ngIf="editingProduct" class="edit-product">
-    <h3>Edit Product</h3>
-    <input type="text" [(ngModel)]="editingProduct.name">
-    <input type="text" [(ngModel)]="editingProduct.description">
-    <input type="number" [(ngModel)]="editingProduct.price">
-    <input type="number" [(ngModel)]="editingProduct.qty">
+        <div class="field field-span2">
+          <span>New Image / PDF <em class="muted">(optional)</em></span>
+          <input class="file-input" type="file"
+            accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
+            (change)="handleEditImageUpload($event)" />
+          <p class="hint">Leave blank to keep existing image.</p>
+        </div>
+      </div>
 
-    <!-- Optional new image upload -->
-    <input 
-      type="file" 
-      accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
-      (change)="handleEditImageUpload($event)">
-
-      <!-- Edit Image Preview -->
+      <!-- Edit Preview -->
       <div *ngIf="editPreviewUrl" class="preview-wrap">
         <div *ngIf="!editPreviewIsPdf">
           <img [src]="editPreviewUrl" alt="Selected image preview" class="preview-img" />
@@ -105,8 +218,8 @@
         </div>
 
         <div class="preview-actions">
-          <button type="button" (click)="triggerEditReupload()">Choose different file</button>
-          <button type="button" (click)="cancelEditImage()">Cancel image</button>
+          <button type="button" class="btn btn-secondary" (click)="triggerEditReupload()">Choose different file</button>
+          <button type="button" class="btn btn-ghost" (click)="cancelEditImage()">Cancel image</button>
         </div>
       </div>
 
@@ -119,8 +232,10 @@
         style="display:none"
       />
 
-    <button (click)="saveEdit()">Save</button>
-    <button (click)="editingProduct = null">Cancel</button>
-  </div>
-
+      <div class="actions row-actions">
+        <button class="btn btn-primary" (click)="saveEdit()" [disabled]="!editFormValid">Save</button>
+        <button class="btn btn-ghost" (click)="editingProduct = null">Cancel</button>
+      </div>
+    </section>
+  </main>
 </div>

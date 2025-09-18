@@ -34,6 +34,12 @@ export class SupabaseService {
 
   // Admin Login
   async loginAdmin(email: string, password: string) {
+
+    if (!email || !password || email.trim() === '' || password.trim() === '') {
+      console.error('Login Failed: Email and password are required.');
+      return false;
+    }
+
     const { data, error } = await this.supabase
       .from('AdminUsers')
       .select('*')
@@ -79,7 +85,7 @@ export class SupabaseService {
   async addProduct(name: string, description: string, price: number, qty: number, imageURL: string) {
     const { data, error } = await this.supabase
       .from('Products')
-      .insert([{ name, description, qty, imageURL }]);
+      .insert([{ name, description, price, qty, imageURL }]);
     
     if (error) {
       console.error('Error adding product:', error.message);
