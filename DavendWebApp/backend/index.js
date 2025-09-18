@@ -25,7 +25,7 @@ app.get('/', (req, res) => {
     res.send('Davend Email Backend Running ✔️');
   });
 
-app.post('/send-email', upload.single('designFile'), async (req, res) => {
+app.post('/service-send-email', upload.single('designFile'), async (req, res) => {
   const {
     fullName,
     email,

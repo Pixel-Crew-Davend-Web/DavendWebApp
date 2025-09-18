@@ -10,13 +10,15 @@ import { Router } from '@angular/router';
   styleUrls: ['./manage-inventory.component.css']
 })
 export class ManageInventoryComponent implements OnInit {
+  readonly DEFAULT_IMAGE_KEY = 'defaults/product-placeholder.jpg';
+
   products: any[] = [];
   newProduct = { name: '', description: '', price: 0, qty: 0, imageURL: '' };
   editingProduct: any = null;
   editImageFile: File | null = null;
   selectedImageFile: File | null = null;
 
-    // ADD form preview state
+  // ADD form preview state
   selectedAddFile: File | null = null;
   addPreviewUrl: string | null = null;
   addPreviewIsPdf = false;
@@ -29,9 +31,70 @@ export class ManageInventoryComponent implements OnInit {
   editPreviewIsPdf = false;
   editPreviewTrustedUrl: SafeResourceUrl | null = null;
 
-    // Re-upload inputs
+  // Form validation error messages
+  addErrors = { name: '', price: '', qty: '' };
+  editErrors = { name: '', price: '', qty: '' };
+
+  // Re-upload inputs
   @ViewChild('addReuploadInput', { static: false }) addReuploadInput!: ElementRef<HTMLInputElement>;
   @ViewChild('editReuploadInput', { static: false }) editReuploadInput!: ElementRef<HTMLInputElement>;
+
+  // Form validation
+  get addFormValid(): boolean {
+    return !this.addErrors.name && !this.addErrors.price && !this.addErrors.qty 
+          && this.newProduct.name.trim().length > 0;
+  }
+  get editFormValid(): boolean {
+    if (!this.editingProduct) return false;
+    return !this.editErrors.name && !this.editErrors.price && !this.editErrors.qty 
+          && String(this.editingProduct.name ?? '').trim().length > 0;
+  }
+
+  private isEmpty(v: any): boolean {
+    return v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+  }
+
+  // Validate fields on change
+  private validateName(v: string): string {
+    const name = (v ?? '').trim();
+    if (!name) return 'Name is required.';
+    if (name.length < 2) return 'Name is too short.';
+    if (name.length > 80) return 'Name is too long.';
+    return '';
+  }
+
+  private validatePrice(v: any): string {
+    if (this.isEmpty(v)) return 'Price is required.';
+    const n = typeof v === 'string' ? Number(v.trim()) : Number(v);
+    if (!Number.isFinite(n)) return 'Price must be a number.';
+    if (n <= 0) return 'Price must be greater than 0.'; // change to < 0 if you want to allow free items
+    if (n > 999999) return 'Price is too large.';
+    return '';
+  }
+
+  private validateQty(v: any): string {
+    if (this.isEmpty(v)) return 'Quantity is required.';
+    const n = typeof v === 'string' ? Number(v.trim()) : Number(v);
+    if (!Number.isFinite(n)) return 'Quantity must be a number.';
+    if (!Number.isInteger(n)) return 'Quantity must be a whole number.';
+    if (n < 0) return 'Quantity cannot be negative.';
+    if (n > 1000000) return 'Quantity is too large.';
+    return '';
+  }
+
+  // Call these on input changes
+  validateAdd(): void {
+    this.addErrors.name  = this.validateName(this.newProduct.name);
+    this.addErrors.price = this.validatePrice(this.newProduct.price);
+    this.addErrors.qty   = this.validateQty(this.newProduct.qty);
+  }
+
+  validateEdit(): void {
+    if (!this.editingProduct) return;
+    this.editErrors.name  = this.validateName(this.editingProduct.name);
+    this.editErrors.price = this.validatePrice(this.editingProduct.price);
+    this.editErrors.qty   = this.validateQty(this.editingProduct.qty);
+  }
 
   private readonly allowedTypes = new Set<string>(['image/jpeg', 'application/pdf']);
 
@@ -47,6 +110,7 @@ export class ManageInventoryComponent implements OnInit {
 
   async editProduct(product: any) {
     this.editingProduct = { ...product }; // Clone product for editing
+    this.validateEdit();
   }
   
   getImageUrl(fileName: string): string {
@@ -162,9 +226,12 @@ export class ManageInventoryComponent implements OnInit {
     this.editPreviewTrustedUrl = null;
   }
 
-  // ---------- Hook into your existing submit flows ----------
-
   async addProduct() {
+    this.validateAdd();
+    if (!this.addFormValid) {
+      alert('Please fix the highlighted fields before adding the product.');
+      return;
+    }
     // if no image selected, show warning UI rather than hard-blocking
     if (!this.selectedAddFile && !this.newProduct?.imageURL) {
       this.showAddImageWarning = true;
@@ -194,11 +261,11 @@ export class ManageInventoryComponent implements OnInit {
       }
 
       // Fall back to empty string if no image set (service expects string)
-      const finalImageUrl = uploadedPath ?? (this.newProduct?.imageURL || '');
+      const finalImageUrl = uploadedPath ?? (this.newProduct?.imageURL || this.DEFAULT_IMAGE_KEY);
 
       await this.productService.addProduct(
-        this.newProduct.name,
-        this.newProduct.description,
+        this.newProduct.name.trim(),
+        (this.newProduct.description || '').trim(),
         Number(this.newProduct.price),
         Number(this.newProduct.qty),
         finalImageUrl
@@ -207,6 +274,7 @@ export class ManageInventoryComponent implements OnInit {
       this.clearAddPreview();
       // reset form fields if needed...
       this.newProduct = { name:'', description:'', price:0, qty:0, imageURL:'' };
+      this.addErrors = { name: '', price: '', qty: '' };
 
       await this.loadProducts();
     } catch (e:any) {
@@ -216,6 +284,13 @@ export class ManageInventoryComponent implements OnInit {
   }
 
   async saveEdit() {
+
+    this.validateEdit();
+    if (!this.editFormValid) {
+      alert('Please fix the highlighted fields before saving changes.');
+      return;
+    }
+
     try {
       let uploadedPath: string | null = null;
 
@@ -227,18 +302,21 @@ export class ManageInventoryComponent implements OnInit {
         uploadedPath = await this.productService.uploadProductAsset(this.selectedEditFile);
       }
 
-       const finalImageUrl = uploadedPath ?? (this.editingProduct?.imageURL || '');
+      const existing = (this.editingProduct?.imageURL ?? '').trim();
+      const finalImageUrl = uploadedPath ?? (existing || this.DEFAULT_IMAGE_KEY);
 
       await this.productService.updateProduct(
         String(this.editingProduct.id),
-        this.editingProduct.name,
-        this.editingProduct.description,
+        String(this.editingProduct.name).trim(),
+        String(this.editingProduct.description ?? ''),
         Number(this.editingProduct.price),
         Number(this.editingProduct.qty),
         finalImageUrl
       );
+
       this.clearEditPreview();
       this.editingProduct = null;
+      this.editErrors = { name: '', price: '', qty: '' };
       await this.loadProducts();
     } catch (e:any) {
       console.error(e);
