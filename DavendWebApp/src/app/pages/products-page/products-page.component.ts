@@ -11,7 +11,7 @@ export class ProductsPageComponent {
   filteredProducts: any[] = []; // Filtered product list
   searchTerm: string = ''; // Search term
   productQty: number = 1; // Product quantity
-  selectedFilter: string | null = null; // NOT YET IMPLEMENTED
+  selectedFilter: '' | 'price-asc' | 'price-desc' | 'qty' = ''; // NOT YET IMPLEMENTED
 
   constructor(private productService: ProductService) {}
 

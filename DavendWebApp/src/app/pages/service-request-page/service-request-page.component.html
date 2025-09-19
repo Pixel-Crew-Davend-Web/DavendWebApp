@@ -1,9 +1,9 @@
 <app-header></app-header>
 
-<div class="service-request-container">
+<div class="service-request-container page-wrap">
 
   <!-- Page Title / Intro -->
-  <div class="request-hero">
+  <div class="request-hero hero-like">
     <h1>Apply for Punch and Die Manufacturing</h1>
     <p>
       You are currently browsing punch and die manufacturing services. Please
@@ -13,12 +13,12 @@
   </div>
 
   <!-- Main Content Grid: Form (left) & Services Sidebar (right) -->
-  <div class="request-grid">
+  <div class="request-grid grid-2-1">
     
     <!-- Left Column: Service Request Form -->
-    <div class="request-form-section">
-        <h1>{{ titleHeader }}</h1>
-      <h2>Service Request Form:</h2>
+    <div class="request-form-section card">
+      <h1 class="eyebrow">{{ titleHeader }}</h1>
+      <h2 class="section-title">Service Request Form:</h2>
       <!-- If using Angular Reactive/Template forms, adjust accordingly -->
       <form [formGroup]="requestForm" (ngSubmit)="onSubmit()">
         <div class="form-group">
@@ -27,21 +27,25 @@
           <div *ngIf="requestForm.get('fullName')?.touched && requestForm.get('fullName')?.invalid" class="error">Full Name is required</div>
         </div>
       
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input id="email" type="email" formControlName="email" />
-          <div *ngIf="requestForm.get('email')?.touched && requestForm.get('email')?.invalid" class="error">
-            Valid Email is required
+        <div class="form-row">
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input id="email" type="email" formControlName="email" />
+            <div *ngIf="requestForm.get('email')?.touched && requestForm.get('email')?.invalid" class="error">
+              Valid Email is required
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="phoneNumber">Phone Number</label>
+            <input id="phoneNumber" type="tel" formControlName="phoneNumber" />
+            <div *ngIf="requestForm.get('phoneNumber')?.touched && requestForm.get('phoneNumber')?.invalid" class="error">
+              Phone Number is required
+            </div>
           </div>
         </div>
       
-        <div class="form-group">
-          <label for="phoneNumber">Phone Number</label>
-          <input id="phoneNumber" type="tel" formControlName="phoneNumber" />
-          <div *ngIf="requestForm.get('phoneNumber')?.touched && requestForm.get('phoneNumber')?.invalid" class="error">
-            Phone Number is required
-          </div>
-        </div>
+
       
         <div class="form-group">
           <label for="message">Message</label>
@@ -51,20 +55,51 @@
           </div>
         </div>
       
-        <div class="form-group">
+        <!-- File input -->
+        <div class="form-group file-group">
           <label for="uploadDesign">Upload Design Print</label>
-          <input id="uploadDesign" type="file" (change)="onFileChange($event)" />
+          <input 
+            id="uploadDesign" 
+            type="file" 
+            accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+            (change)="onFileChange($event)" />
+
           <div *ngIf="requestForm.get('designFile')?.touched && requestForm.get('designFile')?.invalid" class="error">
             Design file is required
           </div>
+          <small class="hint">Accepted: PDF, PNG, JPG, DXF (max 10MB)</small>
         </div>
+
+        <!-- Preview (image or PDF) -->
+        <div *ngIf="previewUrl" class="preview-wrap">
+          <div *ngIf="!previewIsPdf">
+            <img [src]="previewUrl" alt="Selected Design Preview" class="preview-img" />
+          </div>
+          <div *ngIf="previewIsPdf" class="pdf-preview">
+            <embed [src]="previewTrustedUrl" type="application/pdf" class="pdf-embed" />
+          </div>
+
+          <div class="preview-actions">
+            <button type="button" class="btn btn-secondary" (click)="triggerReupload()">Choose different file</button>
+            <button type="button" class="btn btn-ghost" (click)="removeDesign()">Remove file</button>
+          </div>
+        </div>
+
+        <!-- Hidden re-upload input -->
+        <input
+          #reuploadInput
+          type="file"
+          accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+          (change)="onFileChange($event)"
+          style="display:none"
+        />
       
         <button type="submit" class="submit-btn">Submit</button>
       </form>      
     </div>
 
     <!-- Right Column: Sidebar with other services -->
-    <aside class="services-sidebar">
+    <aside class="services-sidebar card">
       <h3>Services</h3>
       <div class="service-buttons">
         <button
@@ -75,6 +110,9 @@
           {{ service }}
         </button>
       </div>
+
+      <div class="section-divider"></div>
+
       <img
         src="assets/images/service-sidebar.jpg"
         alt="Service Sidebar"
