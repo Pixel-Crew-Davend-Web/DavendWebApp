@@ -93,6 +93,59 @@ app.post('/service-send-email', upload.single('designFile'), async (req, res) =>
   }
 });
 
+// Contact: optional file
+app.post('/contact-send-email', upload.single('attachment'), async (req, res) => {
+  const { fullName, email, subject, message } = req.body;
+  const file = req.file ?? null;
+
+  if (!fullName || !email || !subject || !message) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  try {
+    // For dev/demo: ephemeral test account.
+    // In prod, switch to your real SMTP creds in env.
+    const testAccount = await nodemailer.createTestAccount();
+
+    const transporter = nodemailer.createTransport({
+      host: testAccount.smtp.host,
+      port: testAccount.smtp.port,
+      secure: testAccount.smtp.secure,
+      auth: { user: testAccount.user, pass: testAccount.pass },
+      tls: { rejectUnauthorized: false } // DEV ONLY
+    });
+
+    const mailOptions = {
+      from: `"${fullName}" <${email}>`,
+      to: 'example@gmail.com',
+      subject: `[Contact] ${subject}`,
+      text:
+`From: ${fullName}
+Email: ${email}
+
+Message:
+${message}`,
+    };
+
+    if (file) {
+      mailOptions.attachments = [{
+        filename: file.originalname,
+        content: file.buffer
+      }];
+    }
+
+    const info = await transporter.sendMail(mailOptions);
+    res.status(200).json({
+      message: 'Contact email sent!',
+      preview: nodemailer.getTestMessageUrl(info)
+    });
+  } catch (err) {
+    console.error('❌ Contact send failed:', err);
+    res.status(500).json({ message: 'Failed to send contact email.' });
+  }
+});
+
+
 app.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);
 });

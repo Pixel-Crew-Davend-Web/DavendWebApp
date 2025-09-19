@@ -17,6 +17,8 @@ export class ServiceRequestPageComponent implements OnDestroy {
   ];
 
   selectedService: string = 'Surface Grinding'; // Default value for selected service
+
+  sending = false;
   
   requestForm: FormGroup;
   emailTitle = '';
@@ -142,13 +144,16 @@ export class ServiceRequestPageComponent implements OnDestroy {
 
     if (file) form.append('designFile', this.requestForm.get('designFile')?.value);
 
+    this.sending = true;
+
     this.http.post('https://davendwebappservice.onrender.com/service-send-email', form)
       .subscribe({
         next: (res: any) => {
+          this.sending = false;
           alert('Email sent!');
           if (res.preview) window.open(res.preview, '_blank');
-          this.removeDesign(false);
           this.requestForm.reset();
+          this.removeDesign(false);
         },
         error: () => alert('Failed to send email.')
       });

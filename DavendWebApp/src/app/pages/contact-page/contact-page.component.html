@@ -1,3 +1,75 @@
 <app-header></app-header>
-<p>contact-page works!</p>
+
+<div class="contact-page-wrapper">
+  <!-- Hero -->
+  <section class="contact-hero">
+    <h1>Contact Us</h1>
+    <p>Questions, quotes, or feedback—send us a message and we’ll get back to you.</p>
+  </section>
+
+  <!-- Card form -->
+  <section class="contact-card card">
+    <form [formGroup]="contactForm" (ngSubmit)="onSubmit()" novalidate>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="fullName">Full Name</label>
+          <input id="fullName" type="text" formControlName="fullName" />
+          <small class="err" *ngIf="touchedInvalid('fullName')">Full Name is required</small>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input id="email" type="email" formControlName="email" />
+          <small class="err" *ngIf="touchedInvalid('email')">Valid email is required</small>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="subject">Subject</label>
+        <input id="subject" type="text" formControlName="subject" />
+        <small class="err" *ngIf="touchedInvalid('subject')">Subject is required</small>
+      </div>
+
+      <div class="form-group">
+        <label for="message">Message</label>
+        <textarea id="message" rows="6" formControlName="message"></textarea>
+        <small class="err" *ngIf="touchedInvalid('message')">Message is required</small>
+      </div>
+
+      <div class="form-group file-group">
+        <label for="attachment">Attachment <em class="muted">(optional)</em></label>
+        <input
+          id="attachment"
+          type="file"
+          accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+          (change)="onFileChange($event)"
+        />
+        <br>
+        <small class="hint" *ngIf="!attachmentName">Accepted: JPG, PNG, or PDF (max {{maxSizeMb}}MB)</small>
+
+        <!-- Small attachment chip -->
+        <div class="attach-chip" *ngIf="attachmentName">
+          <span class="file-name">{{ attachmentName }}</span>
+          <button type="button" class="btn btn-ghost" (click)="removeAttachment()">✕</button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary-cta" type="submit" [disabled]="contactForm.invalid || sending">
+          {{ sending ? 'Sending…' : 'Send Message' }}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- Optional: quick info box -->
+  <aside class="contact-info card">
+    <h3>Prefer email?</h3>
+    <p>You can also email us directly: <strong>example&#64;gmail.com</strong></p>
+    <p class="muted">We typically respond within 1–2 business days.</p>
+  </aside>
+</div>
+
 <app-footer></app-footer>

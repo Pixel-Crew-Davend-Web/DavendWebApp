@@ -1,0 +1,105 @@
+/* Page shell (same rhythm as Services/Request) */
+.contact-page-wrapper {
+  width: 90%;
+  max-width: 1300px;
+  margin: 2rem auto;
+  font-family: 'Arial', sans-serif;
+  color: #222;
+  padding: 0 1rem;
+}
+
+/* Hero */
+.contact-hero { text-align: center; margin-bottom: 2.5rem; }
+.contact-hero h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.contact-hero p { font-size: 1.1rem; color: #555; }
+
+/* Shared card look */
+.card {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: #f9f9f9;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  padding: 1.25rem;
+}
+
+/* Form layout */
+.contact-card form { display: flex; flex-direction: column; gap: 1rem; }
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1.25rem;
+}
+.form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.45rem;
+}
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 90%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 1rem;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.form-group textarea { resize: vertical; }
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0,123,255,0.12);
+}
+
+.err { color: #b00020; font-size: 0.9rem; margin-top: 0.25rem; }
+.muted { color: #666; }
+
+/* Attachment chip */
+.attach-chip {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  padding: 0.35rem 0.6rem;
+}
+.attach-chip .file-name { font-size: 0.9rem; }
+
+/* CTA */
+.primary-cta {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.25s ease, transform 0.06s ease;
+}
+.primary-cta:hover { background-color: #0056b3; }
+.primary-cta:active { transform: translateY(1px); }
+.primary-cta:disabled { background: #c9c9c9; cursor: not-allowed; transform: none; }
+
+/* Divider (same gradient) */
+.section-divider {
+  height: 2px;
+  width: 100%;
+  margin: 1.75rem 0;
+  background: linear-gradient(to right, transparent, #ccc, transparent);
+  opacity: 0.7;
+}
+
+/* Contact info */
+.contact-info h3 { margin-top: 0; margin-bottom: 0.5rem; }
+.contact-info p { margin: 0.25rem 0; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .contact-hero h1 { font-size: 2rem; }
+  .contact-hero p { font-size: 1rem; }
+  .form-row { grid-template-columns: 1fr; }
+}

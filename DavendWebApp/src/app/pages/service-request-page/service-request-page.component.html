@@ -94,7 +94,12 @@
           style="display:none"
         />
       
-        <button type="submit" class="submit-btn">Submit</button>
+        <button 
+          type="submit" 
+          class="submit-btn" 
+          [disabled]="requestForm.invalid || sending">
+          {{ sending ? 'Sending…' : 'Submit' }}
+        </button>
       </form>      
     </div>
 
