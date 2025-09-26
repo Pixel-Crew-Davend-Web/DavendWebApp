@@ -1,14 +1,7 @@
 # See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
-# Server environment secrets (do not commit real keys)
-.env
-.env.*
-!.env.example
-
-# Environment files (Angular)
+# Environment files
 /src/environments/environment*.ts
-!/src/environments/environment.example.ts
-!/src/environments/environment.prod.ts
 
 # Compiled output
 /dist
