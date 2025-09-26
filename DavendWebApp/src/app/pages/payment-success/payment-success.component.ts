@@ -1,5 +1,7 @@
+// payment-success.component.ts
 import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { PaymentService } from '../../services/payment.service';
 
 @Component({
   selector: 'app-success',
@@ -7,30 +9,27 @@ import { ActivatedRoute } from '@angular/router';
   styleUrls: ['./payment-success.component.scss']
 })
 export class SuccessComponent implements OnInit {
-  orderId: string | null = null;
-
-  // For demo: mock order data (replace later with API call to Supabase)
   order: any = null;
 
-  constructor(private route: ActivatedRoute) {}
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private payment: PaymentService
+  ) {}
 
-  ngOnInit() {
-    this.orderId = this.route.snapshot.paramMap.get('id');
+  ngOnInit(): void {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (!id) return;
 
-    // Mock example order object
-    this.order = {
-      id: this.orderId,
-      date: new Date(),
-      method: 'Visa ending in 1234',
-      amount: 45.13,
-      customer: {
-        fullName: 'John Doe',
-        email: 'johnd@industries.ca',
-        phone: '9052377634',
-        address: '6424 Tillsdown Dr, Unit 20B',
-        city: 'Mississauga, ON',
-        postalCode: 'L2I 2OP'
-      }
-    };
+    this.payment.getSuccessAuto(id).subscribe({
+      next: (data: any) => {
+        this.order = data?.order;
+        const canonicalId = this.order?.id;
+        if (canonicalId && canonicalId !== id) {
+          this.router.navigate(['/success', canonicalId], { replaceUrl: true });
+        }
+      },
+      error: (e) => console.error('Failed to load success payload', e),
+    });
   }
 }

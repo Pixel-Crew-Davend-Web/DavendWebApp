@@ -6,6 +6,8 @@ import { OrderService } from '../../services/order.service';
 import { PaymentService, PaymentMethod, PaymentResult } from '../../services/payment.service';
 import { EmailService } from '../../services/email.service';
 import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-checkout-page',
@@ -19,18 +21,16 @@ export class CheckoutPageComponent implements OnInit {
   errorMsg = '';
   pendingInfo: PaymentResult | null = null;
 
-  // Strongly typed form with default method
-checkoutForm = this.fb.group({
-  fullName: ['', Validators.required],
-  email: ['', [Validators.required, Validators.email]],
-  phone: [''],
-  address: ['', Validators.required],
-  city: ['', Validators.required],
-  postalCode: ['', Validators.required],
-  method: ['CARD' as PaymentMethod, Validators.required],
-  message: ['']
-});
-
+  checkoutForm = this.fb.group({
+    fullName: ['', Validators.required],
+    email: ['', [Validators.required, Validators.email]],
+    phone: [''],
+    address: ['', Validators.required],
+    city: ['', Validators.required],
+    postalCode: ['', Validators.required],
+    method: ['CARD' as PaymentMethod, Validators.required],
+    message: ['']  // captured and sent to backend
+  });
 
   constructor(
     private fb: FormBuilder,
@@ -39,7 +39,8 @@ checkoutForm = this.fb.group({
     private orderService: OrderService,
     private paymentService: PaymentService,
     private emailService: EmailService,
-    private router: Router
+    private router: Router,
+    private http: HttpClient, 
   ) {}
 
   async ngOnInit() {
@@ -57,7 +58,7 @@ checkoutForm = this.fb.group({
           qty: item.qty,
           totalPrice: product.price * item.qty,
           removeQty: 1
-        };        
+        };
         this.cartItems.push(fullProduct);
       } catch (error) {
         console.error(`Failed to fetch product with ID ${item.id}:`, error);
@@ -68,24 +69,24 @@ checkoutForm = this.fb.group({
 
   private roundToTwo(num: number): number {
     return Math.round((num + Number.EPSILON) * 100) / 100;
-  }  
+  }
 
   private recalculateTotal() {
     this.total = this.roundToTwo(
       this.cartItems.reduce((acc, item) => acc + item.totalPrice, 0)
     );
-  }  
+  }
 
   getImageUrl(fileName: string): string {
-    return `https://oitjgpsicvzplwsbmxyo.supabase.co/storage/v1/object/public/product-images/${fileName}`; // CHANGED URL TO oitjgpsicvzplwsbmxyo MIGHT NEED TO CHANGE OTHER FUNCTIONS
-  }  
+    return `https://oitjgpsicvzplwsbmxyo.supabase.co/storage/v1/object/public/product-images/${fileName}`;
+  }
 
   removeFromCart(id: string, qtyToRemove: number) {
     const index = this.cartItems.findIndex(item => item.id === id);
     if (index === -1) return;
-  
+
     const item = this.cartItems[index];
-  
+
     if (qtyToRemove >= item.qty) {
       this.cartItems.splice(index, 1);
     } else {
@@ -102,52 +103,132 @@ checkoutForm = this.fb.group({
     localStorage.setItem('cart', JSON.stringify(updatedCart));
   }
 
-async payNow() {
-  this.isProcessing = true;
-  this.errorMsg = '';
-  this.pendingInfo = null;
-
-  try {
-    const customer = this.checkoutForm.value;
-    const amount = this.total;
-
-    // Fallback default
-    const paymentMethod: PaymentMethod = customer.method ?? 'CARD';
-
-    // Step 1: Create draft order
-    const order = await this.orderService.createOrderDraft(
-      this.cartItems,
-      {
-        fullName: customer.fullName!,
-        email: customer.email!,
-        phone: customer.phone || '',
-        address: customer.address!,
-        city: customer.city!,
-        postalCode: customer.postalCode!,
-        message: customer.message || ''
-      },
-      paymentMethod,
-      amount
-    );
-
-    // Step 2: Attempt payment
-    const result = await this.paymentService.charge(order.id, amount, paymentMethod);
-
-    if (result.status === 'success') {
-      await this.orderService.finalizeOrder(order.id, result.txnId!);
-      await this.emailService.sendReceipt(order.id);
-      this.router.navigate(['/success', order.id]);
-    } else if (result.status === 'pending') {
-      this.pendingInfo = result;
-      await this.emailService.sendEtransferInstructions(order.id);
-    } else {
-      this.errorMsg = result.message || 'Payment failed. Please try again.';
+  async payNow() {
+    if (this.checkoutForm.invalid) {
+      this.errorMsg = 'Please complete all required fields.';
+      return;
     }
-  } catch (err: any) {
-    this.errorMsg = 'Something went wrong. Please try again.';
-  } finally {
-    this.isProcessing = false;
-  }
-}
+    if (!this.cartItems.length) {
+      this.errorMsg = 'Your cart is empty.';
+      return;
+    }
 
+    this.isProcessing = true;
+    this.errorMsg = '';
+    this.pendingInfo = null;
+
+    try {
+      const customer: any = this.checkoutForm.value;
+      const amount = this.total;
+      const paymentMethod: PaymentMethod = customer.method ?? 'CARD';
+      const orderDraft = await this.orderService.createOrderDraft(
+        this.cartItems,
+        {
+          fullName: customer.fullName!,
+          email: customer.email!,
+          phone: customer.phone || '',
+          address: customer.address!,
+          city: customer.city!,
+          postalCode: customer.postalCode!,
+          message: customer.message || ''
+        },
+        paymentMethod,
+        amount
+      ); 
+
+      if (paymentMethod === 'CARD') {
+        await this.paymentService.payWithCard(this.cartItems, customer, orderDraft.id);
+        return; 
+      }
+
+      if (paymentMethod === 'ETRANSFER') {
+       
+        const result: any = await this.paymentService.payWithEtransfer(
+          this.cartItems,
+          customer,
+          orderDraft.id
+          
+        );
+
+        const ref = result?.order?.reference || 'ET-UNKNOWN';
+        this.pendingInfo = {
+          status: 'pending',
+          reference: ref,
+          deadlineISO: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
+          amount: this.total,
+          message: 'Please send an e-transfer to payments@yourshop.com with the reference in the memo.'
+        };
+
+        try {
+          if (result?.order?.draft_id) {
+            await this.emailService.sendEtransferInstructions(result.order.draft_id);
+          }
+        } catch {  }
+
+        return;
+      }
+
+      if (paymentMethod === 'PAYPAL') {
+        
+        const paypalSdk = (window as any).paypal;
+        if (!paypalSdk || !paypalSdk.Buttons) {
+          this.errorMsg = 'PayPal is not available right now. Please try again later.';
+          return;
+        }
+
+       
+        const createResp = await this.http.post<{ id: string }>(
+          `${environment.apiBaseUrl}/api/payments/paypal/create-order`,
+          { items: this.cartItems.map(i => ({ id: i.id, qty: i.qty })), customer, orderDraftId: orderDraft.id }
+        ).toPromise();
+
+        const orderID = createResp?.id;
+        if (!orderID) {
+          this.errorMsg = 'Could not start PayPal payment.';
+          return;
+        }
+
+        const containerSelector = '#paypal-button-container';
+        const containerEl = document.querySelector(containerSelector);
+        if (containerEl) containerEl.innerHTML = ''; // clear any prior button
+
+        paypalSdk.Buttons({
+          createOrder: () => orderID,
+          onApprove: async (data: any) => {
+            try {
+              const capture: any = await this.http.post(
+                `${environment.apiBaseUrl}/api/payments/paypal/capture-order`,
+                { orderID: data.orderID, orderDraftId: orderDraft.id, customer }
+              ).toPromise();
+
+              if (capture?.status === 'success') {
+                this.router.navigate(['/success', orderDraft.id]);
+              } else {
+                this.errorMsg = 'PayPal payment failed. Please try again.';
+              }
+            } catch (e) {
+              console.error('PayPal capture error:', e);
+              this.errorMsg = 'PayPal payment failed. Please try again.';
+            }
+          },
+          onCancel: () => {
+            this.errorMsg = 'PayPal payment was canceled.';
+          },
+          onError: (err: any) => {
+            console.error('PayPal JS error:', err);
+            this.errorMsg = 'PayPal encountered an error.';
+          }
+        }).render(containerSelector);
+
+        return; 
+      }
+
+      this.errorMsg = 'Unknown payment method.';
+    } catch (err: any) {
+      console.error(err);
+      this.errorMsg = 'Something went wrong. Please try again.';
+    } finally {
+      this.isProcessing = false;
+    }
+  }
 }
