@@ -63,6 +63,7 @@ export const environment = {
   nodeEnv: '${nodeEnv}',
   port: '${port}',
   frontendUrl: '${frontendUrl}',
+  apiBaseUrl: '${apiBaseUrl}',
 
   // Stripe
   stripeSecretKey: '${stripeSecretKey}',
