@@ -1,9 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { loadStripe, Stripe } from '@stripe/stripe-js';
-import { environment } from '../../environments/environment';
 import { catchError } from 'rxjs/operators';
 import { throwError, Observable, firstValueFrom } from 'rxjs';
+import { environment } from '../../environments/environment';
+
+
 
 export type PaymentMethod = 'CARD' | 'PAYPAL' | 'ETRANSFER';
 
