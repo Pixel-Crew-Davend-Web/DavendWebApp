@@ -2,6 +2,7 @@ import { Component, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { PopupService } from '../../services/popup.service';
 
 @Component({
   selector: 'app-service-request-page',
@@ -36,7 +37,7 @@ export class ServiceRequestPageComponent implements OnDestroy {
 
   @ViewChild('reuploadInput', { static: false }) reuploadInput!: ElementRef<HTMLInputElement>;
 
-  constructor(private fb: FormBuilder, private http: HttpClient, private sanitizer: DomSanitizer) {
+  constructor(private fb: FormBuilder, private http: HttpClient, private sanitizer: DomSanitizer, private popup: PopupService) {
     this.requestForm = this.fb.group({
       fullName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
@@ -150,7 +151,8 @@ export class ServiceRequestPageComponent implements OnDestroy {
       .subscribe({
         next: (res: any) => {
           this.sending = false;
-          alert('Email sent!');
+          // alert('Email sent!');
+          this.popup.success('Service request sent successfully.');
           if (res.preview) window.open(res.preview, '_blank');
           this.requestForm.reset();
           this.removeDesign(false);

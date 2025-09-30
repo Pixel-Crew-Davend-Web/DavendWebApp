@@ -2,7 +2,9 @@ import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ProductService } from '../../services/product.service';
 import { AdminAuthService } from '../../services/admin-auth.service';
+import { PopupService } from '../../services/popup.service';
 import { Router } from '@angular/router';
+import { ConfirmService } from '../../services/confirm.service';
 
 @Component({
   selector: 'app-manage-inventory',
@@ -98,7 +100,14 @@ export class ManageInventoryComponent implements OnInit {
 
   private readonly allowedTypes = new Set<string>(['image/jpeg', 'application/pdf']);
 
-  constructor(private productService: ProductService, private adminAuthService: AdminAuthService, private router: Router, private sanitizer: DomSanitizer) {}
+  constructor(
+    private productService: ProductService, 
+    private adminAuthService: AdminAuthService, 
+    private router: Router, 
+    private sanitizer: DomSanitizer, 
+    private popup: PopupService,
+    private confirm: ConfirmService
+  ) {}
 
   async ngOnInit() {
     await this.loadProducts();
@@ -118,9 +127,30 @@ export class ManageInventoryComponent implements OnInit {
   }  
 
   async deleteProduct(id: string) {
-    if (confirm('Are you sure you want to delete this product?')) {
+    // if (confirm('Are you sure you want to delete this product?')) {
+    //   await this.productService.deleteProduct(id);
+    //   this.popup.success('Product deleted successfully.');
+    //   await this.loadProducts();
+    // }
+    const ok = await this.confirm.confirm({
+      kind: 'danger',
+      title: 'Delete product?',
+      message: 'This action cannot be undone.',
+      okText: 'Delete',
+      cancelText: 'Cancel'
+    });
+
+    if (!ok) {
+      this.popup.info('Product deletion cancelled.');
+      return;
+    }
+
+    if (ok) {
       await this.productService.deleteProduct(id);
+      this.popup.success('Product deleted successfully.');
       await this.loadProducts();
+    } else {
+      this.popup.info('Product deletion cancelled.');
     }
   }
 
@@ -140,7 +170,7 @@ export class ManageInventoryComponent implements OnInit {
 
     // Normalize jpg/jpeg mime → image/jpeg in most browsers
     if (!this.allowedTypes.has(file.type)) {
-      alert('Only JPG/JPEG images or PDF files are allowed.');
+      this.popup.error('Only JPG/JPEG images or PDF files are allowed.');
       (evt.target as HTMLInputElement).value = ''; // reset input
       return;
     }
@@ -189,7 +219,7 @@ export class ManageInventoryComponent implements OnInit {
     if (!file) return;
 
     if (!this.allowedTypes.has(file.type)) {
-      alert('Only JPG/JPEG images or PDF files are allowed.');
+      this.popup.error('Only JPG/JPEG images or PDF files are allowed.');
       (evt.target as HTMLInputElement).value = '';
       return;
     }
@@ -229,7 +259,7 @@ export class ManageInventoryComponent implements OnInit {
   async addProduct() {
     this.validateAdd();
     if (!this.addFormValid) {
-      alert('Please fix the highlighted fields before adding the product.');
+      this.popup.error('Please fix the highlighted fields before adding the product.');
       return;
     }
     // if no image selected, show warning UI rather than hard-blocking
@@ -254,7 +284,7 @@ export class ManageInventoryComponent implements OnInit {
       if (this.selectedAddFile) {
         // recheck types for safety
         if (!this.allowedTypes.has(this.selectedAddFile.type)) {
-          alert('Invalid file type.');
+          this.popup.error('Invalid file type.');
           return;
         }
         uploadedPath = await this.productService.uploadProductAsset(this.selectedAddFile);
@@ -276,10 +306,12 @@ export class ManageInventoryComponent implements OnInit {
       this.newProduct = { name:'', description:'', price:0, qty:0, imageURL:'' };
       this.addErrors = { name: '', price: '', qty: '' };
 
+      this.popup.success('Product added successfully.');
+
       await this.loadProducts();
     } catch (e:any) {
       console.error(e);
-      alert('Failed to add product.');
+      this.popup.error('Failed to add product.');
     }
   }
 
@@ -287,7 +319,7 @@ export class ManageInventoryComponent implements OnInit {
 
     this.validateEdit();
     if (!this.editFormValid) {
-      alert('Please fix the highlighted fields before saving changes.');
+      this.popup.error('Please fix the highlighted fields before saving changes.');
       return;
     }
 
@@ -296,7 +328,7 @@ export class ManageInventoryComponent implements OnInit {
 
       if (this.selectedEditFile) {
         if (!this.allowedTypes.has(this.selectedEditFile.type)) {
-          alert('Invalid file type.');
+          this.popup.error('Invalid file type.');
           return;
         }
         uploadedPath = await this.productService.uploadProductAsset(this.selectedEditFile);
@@ -314,13 +346,15 @@ export class ManageInventoryComponent implements OnInit {
         finalImageUrl
       );
 
+      this.popup.success('Product updated successfully.');
+
       this.clearEditPreview();
       this.editingProduct = null;
       this.editErrors = { name: '', price: '', qty: '' };
       await this.loadProducts();
     } catch (e:any) {
       console.error(e);
-      alert('Failed to save changes.');
+      this.popup.error('Failed to save changes.');
     }
   }
 }

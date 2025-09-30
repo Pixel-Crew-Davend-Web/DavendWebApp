@@ -1,0 +1,23 @@
+<div class="overlay" *ngIf="isVisible()" (click)="onCancel()"></div>
+
+<div class="container" *ngIf="isVisible()" role="dialog" aria-modal="true">
+  <div [class]="wrapperClass(state()?.kind)">
+    <div class="header">
+      <div class="title">{{ state()?.title }}</div>
+      <button class="x" (click)="onCancel()" aria-label="Close">×</button>
+    </div>
+
+    <div class="body">
+      <p>{{ state()?.message }}</p>
+    </div>
+
+    <div class="actions">
+      <button class="btn outline" (click)="onCancel()">
+        {{ state()?.cancelText }}
+      </button>
+      <button class="btn solid" (click)="onOk()">
+        {{ state()?.okText }}
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,18 @@
+<div class="overlay" *ngIf="isVisible()" (click)="close()"></div>
+
+<div class="container" *ngIf="isVisible()" role="alertdialog" aria-live="assertive">
+  <div [class]="wrapperClass(state()?.type)">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
+        <path [attr.d]="iconPath(state()?.type || 'success')" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+    </div>
+
+    <div class="content">
+      <div class="title" *ngIf="state()?.title">{{ state()?.title }}</div>
+      <div class="message">{{ state()?.message }}</div>
+    </div>
+
+    <button *ngIf="state()?.dismissible !== false" class="close" (click)="close()" aria-label="Close">×</button>
+  </div>
+</div>

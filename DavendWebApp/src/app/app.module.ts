@@ -17,7 +17,9 @@ import { CheckoutPageComponent } from './pages/checkout-page/checkout-page.compo
 import { ServiceRequestPageComponent } from './pages/service-request-page/service-request-page.component';
 import { provideHttpClient } from '@angular/common/http';
 import { SuccessComponent } from './pages/payment-success/payment-success.component';
-import { AdminOrdersComponent } from './pages/admin-orders/admin-orders.component'; 
+import { AdminOrdersComponent } from './pages/admin-orders/admin-orders.component';
+import { PopupNotificationComponent } from './components/popup-notification/popup-notification.component';
+import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component'; 
 
 
 @NgModule({
@@ -35,14 +37,16 @@ import { AdminOrdersComponent } from './pages/admin-orders/admin-orders.componen
     CheckoutPageComponent,
     ServiceRequestPageComponent,
     SuccessComponent,
-    AdminOrdersComponent
+    AdminOrdersComponent,
   ],
   imports: [
     BrowserModule,
     AppRoutingModule,
     FormsModule,
-    ReactiveFormsModule
-  ],
+    ReactiveFormsModule,
+    PopupNotificationComponent,
+    ConfirmDialogComponent
+],
   providers: [provideHttpClient()],
   bootstrap: [AppComponent]
 })

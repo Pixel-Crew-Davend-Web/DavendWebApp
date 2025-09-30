@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
 import { HttpClient } from '@angular/common/http';
+import { PopupService } from '../../services/popup.service';
 
 @Component({
   selector: 'app-contact-page',
@@ -21,7 +22,7 @@ export class ContactPageComponent {
     'image/jpeg', 'image/png', 'application/pdf'
   ]);
 
-  constructor(private fb: FormBuilder, private http: HttpClient, private sanitizer: DomSanitizer) {
+  constructor(private fb: FormBuilder, private http: HttpClient, private sanitizer: DomSanitizer, private popup: PopupService) {
     this.contactForm = this.fb.group({
       fullName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
@@ -49,12 +50,12 @@ export class ContactPageComponent {
 
     const sizeMb = file.size / (1024 * 1024);
     if (!this.allowedTypes.has(file.type)) {
-      alert('Only JPG/PNG images or PDF files are allowed.');
+      this.popup.error('Only JPG/PNG images or PDF files are allowed.');
       input.value = '';
       return;
     }
     if (sizeMb > this.maxSizeMb) {
-      alert(`File is too large. Please select a file up to ${this.maxSizeMb}MB.`);
+      this.popup.error(`File is too large. Please select a file up to ${this.maxSizeMb}MB.`);
       input.value = '';
       return;
     }
@@ -91,14 +92,14 @@ export class ContactPageComponent {
       .subscribe({
         next: (res: any) => {
           this.sending = false;
-          alert('Message sent!');
+          this.popup.success('Message sent!');
           if (res?.preview) window.open(res.preview, '_blank'); // nodemailer test preview
           this.contactForm.reset();
           this.removeAttachment();
         },
         error: () => {
           this.sending = false;
-          alert('Failed to send message.');
+          this.popup.error('Failed to send message.');
         }
       });
   }

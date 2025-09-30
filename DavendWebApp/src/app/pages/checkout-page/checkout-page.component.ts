@@ -8,6 +8,7 @@ import { EmailService } from '../../services/email.service';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { PopupService } from '../../services/popup.service';
 
 @Component({
   selector: 'app-checkout-page',
@@ -40,7 +41,8 @@ export class CheckoutPageComponent implements OnInit {
     private paymentService: PaymentService,
     private emailService: EmailService,
     private router: Router,
-    private http: HttpClient, 
+    private http: HttpClient,
+    private popup: PopupService
   ) {}
 
   async ngOnInit() {
@@ -101,6 +103,7 @@ export class CheckoutPageComponent implements OnInit {
       qty: item.qty
     }));
     localStorage.setItem('cart', JSON.stringify(updatedCart));
+    this.popup.info('Cart updated.');
   }
 
   async payNow() {
@@ -223,9 +226,11 @@ export class CheckoutPageComponent implements OnInit {
         return; 
       }
 
+      this.popup.error('Unknown payment method.');
       this.errorMsg = 'Unknown payment method.';
     } catch (err: any) {
       console.error(err);
+      this.popup.error('Something went wrong. Please try again.');
       this.errorMsg = 'Something went wrong. Please try again.';
     } finally {
       this.isProcessing = false;
