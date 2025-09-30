@@ -1,0 +1,55 @@
+:host { position: fixed; inset: 0; z-index: 10000; pointer-events: none; }
+
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.35);
+  pointer-events: auto;
+}
+
+.container {
+  position: fixed; inset: 0;
+  display: grid; place-items: center;
+  pointer-events: none;
+}
+
+.dialog {
+  pointer-events: auto;
+  width: min(520px, 92vw);
+  background: #111;
+  color: #fff;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.12);
+  animation: pop 140ms ease-out;
+  display: grid; gap: 12px; padding: 16px 16px 14px;
+}
+
+.dialog.danger { border-color: #f43f5e; }
+.dialog.warning { border-color: #f59e0b; }
+
+.header { display: flex; align-items: center; justify-content: space-between; }
+.title { font-weight: 700; font-size: 18px; }
+.x { background: transparent; border: 0; color: inherit; font-size: 22px; cursor: pointer; opacity: .85; }
+.x:hover { opacity: 1; }
+
+.body p { margin: 6px 0 4px; line-height: 1.5; font-size: 14px; }
+
+.actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
+.btn {
+  border-radius: 10px; padding: 10px 14px; font-weight: 600; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06); color: #fff;
+}
+
+.btn.outline:hover { background: rgba(255,255,255,0.1); }
+.btn.solid {
+  background: #22c55e; border-color: #22c55e; /* default OK is green */
+}
+.dialog.danger .btn.solid { background: #ef4444; border-color: #ef4444; }   /* destructive */
+.dialog.warning .btn.solid { background: #f59e0b; border-color: #f59e0b; }  /* risky */
+
+@keyframes pop {
+  from { transform: translateY(10px) scale(0.98); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);    opacity: 1; }
+}
