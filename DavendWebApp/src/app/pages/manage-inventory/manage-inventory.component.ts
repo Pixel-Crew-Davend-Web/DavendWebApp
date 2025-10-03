@@ -110,7 +110,27 @@ export class ManageInventoryComponent implements OnInit {
   ) {}
 
   async ngOnInit() {
+    await this.isAdminTokenValid();
     await this.loadProducts();
+  }
+
+  private async isAdminTokenValid(): Promise<void> {
+    const adminEmail = localStorage.getItem('email');
+    if (!adminEmail) {
+      this.adminAuthService.logoutAdmin();
+      this.router.navigate(['/login']);
+      return;
+    }
+    const adminID = await this.adminAuthService.getAdminIDByEmail(adminEmail);
+    const localToken = localStorage.getItem('adminToken');
+    const valid = await this.adminAuthService.isAdminTokenValid(adminID, localToken || undefined);
+    if (!valid) {
+      this.popup.error('Session expired. Please log in again.');
+      this.adminAuthService.logoutAdmin();
+      this.router.navigate(['/login']);
+    }
+
+    this.popup.info('Admin Session valid!'); // Remove later
   }
 
   async loadProducts() {

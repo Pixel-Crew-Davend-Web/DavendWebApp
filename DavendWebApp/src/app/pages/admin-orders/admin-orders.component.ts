@@ -1,5 +1,7 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';  // only if you want real navigation
+import { AdminAuthService } from '../../services/admin-auth.service';
+import { PopupService } from '../../services/popup.service';
 
 type OrderStatus = 'Pending' | 'Completed' | 'Cancelled';
 
@@ -23,7 +25,11 @@ interface Order {
   styleUrls: ['./admin-orders.component.css']
 })
 export class AdminOrdersComponent {
-  constructor(private router: Router) {}
+  constructor(private router: Router, private adminAuthService: AdminAuthService, private popup: PopupService) {}
+
+  ngOnit() {
+    this.validateSession();
+  }
 
   // toast
   toastMsg = '';
@@ -48,6 +54,26 @@ export class AdminOrdersComponent {
     { id: '1009', customerName: 'Yusuf Idris',email:'yusuf@example.com',  phone: '289-555-1009', items: 'Custom Bushing',           date: '2025-09-06', status: 'Pending',   history: [] },
     { id: '1010', customerName: 'Hannah Lee', email:'hannah@example.com', phone: '416-555-1010', items: 'Ejector Pins x12',         date: '2025-09-05', status: 'Completed', history: [] },
   ];
+
+  async validateSession() {
+    const email = localStorage.getItem('email');
+    if (!email) {
+      this.router.navigate(['/login']);
+      return;
+    }
+
+    const adminID = await this.adminAuthService.getAdminIDByEmail(email);
+    const localToken = localStorage.getItem('adminToken');
+    const valid = await this.adminAuthService.isAdminTokenValid(adminID, localToken || undefined);
+
+    if (!valid) {
+      this.popup.error('Session expired. Please log in again.');
+      this.adminAuthService.logoutAdmin();
+      this.router.navigate(['/login']);
+    }
+
+    this.popup.info('Admin Session valid!'); // Remove later
+  }
 
   // filtered + sorted
   get filteredOrders(): Order[] {

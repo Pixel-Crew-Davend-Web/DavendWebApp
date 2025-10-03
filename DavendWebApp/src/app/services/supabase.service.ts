@@ -23,12 +23,29 @@ export class SupabaseService {
   async signUpAdmin(nickName: string, email: string, password: string) {
     const { data, error } = await this.supabase
       .from('AdminUsers')
-      .insert([{ nickName, email, password }]);
+      .insert([{ nickName, email, password }])
+      .select('id')
+      .single();
 
     if (error) {
       console.error('Signup Error:', error.message);
       return false;
     }
+
+    const adminID = data?.id;
+
+    if (!adminID) {
+      console.error('Signup Error: No admin ID returned.');
+      return false;
+    }
+
+    try {
+      await this.createAdminToken(adminID);
+    } catch (error) {
+      console.error('Error creating admin token:', (error as any)?.message ?? error);
+      return false;
+    }
+
     return true;
   }
 
@@ -51,12 +68,86 @@ export class SupabaseService {
       console.error('Login Failed:', error?.message || 'Invalid credentials');
       return false;
     }
+
+    try {
+      await this.createAdminToken(data.id);
+    } catch (error) {
+      console.error('Error creating admin token:', (error as any)?.message ?? error);
+      return false;
+    }
+
     return true;
   }
 
   // Logout (No Supabase backend logout needed for database auth)
   logoutAdmin() {
     return true; // Placeholder for future improvements
+  }
+
+  // GET Admin ID by email
+  async getAdminIDByEmail(email: string) {
+    const { data, error } = await this.supabase
+      .from('AdminUsers')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (error) {
+      console.error('Error fetching admin ID:', error.message);
+      throw error;
+    }
+    return data?.id || null;
+  }
+
+  // Create Admin TOKEN
+  async createAdminToken(adminID: string) {
+    const token = this.generateToken();
+    const timeStamp = new Date().toISOString();
+
+    const { data, error } = await this.supabase
+      .from('AdminLoginToken')
+      .upsert(
+      [
+        {
+          AdminID: adminID,
+          ADMIN_TOKEN_KEY: token,
+          ADMIN_TOKEN_EXPIRY: timeStamp,
+        },
+      ],
+      { onConflict: 'AdminID' }
+    )
+    .select('"AdminID","ADMIN_TOKEN_KEY","ADMIN_TOKEN_EXPIRY"')
+    .single();
+
+    if (error) {
+      console.error('Error creating admin token:', error.message);
+      throw error;
+    }
+
+    return data; // contains adminID, token, timeStamp
+  }
+
+  private generateToken(): string {
+    // Browser-safe UUID token. If you want longer/opaque, concat two UUIDs.
+    return (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+  }
+
+  async getAdminToken(adminID: string, localToken?: string) {
+    const { data, error } = await this.supabase
+      .from('AdminLoginToken')
+      .select('"ADMIN_TOKEN_KEY","ADMIN_TOKEN_EXPIRY"')
+      .eq('AdminID', adminID)
+      .single();
+    
+    if (localToken && data?.ADMIN_TOKEN_KEY !== localToken) {
+      throw new Error('Token mismatch');
+    }
+
+    if (error) {
+      console.error('Error fetching admin token:', error.message);
+      throw error;
+    }
+    return data;
   }
 
   // PRODUCT MANAGEMENT
