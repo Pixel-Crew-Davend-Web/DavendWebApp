@@ -17,11 +17,34 @@
   line-height: 1.4;
 }
 
+/* === Updated Auth Links (Register | Login | Track Order) === */
 .custom-header a {
   color: #fff;
   text-decoration: none;
-  font-weight: bold;
+  font-weight: normal; /* unbolded */
   margin-left: 1rem;
+  position: relative;
+  transition: color 0.3s ease;
+}
+
+/* Smooth underline hover animation */
+.custom-header a::after {
+  content: '';
+  position: absolute;
+  width: 0%;
+  height: 1px;
+  bottom: -2px;
+  left: 0;
+  background-color: #fff;
+  transition: width 0.3s ease;
+}
+
+.custom-header a:hover {
+  color: #ddd; /* soft fade */
+}
+
+.custom-header a:hover::after {
+  width: 100%;
 }
 
 .header-left,
@@ -52,7 +75,7 @@
 
 .divider {
   margin: 0 0.5rem;
-  color: #aaa;
+  color: #aaa; /* softened divider */
 }
 
 .top-header {
@@ -98,6 +121,9 @@
   border-bottom: 3px solid black !important; 
 }
 
+/* ======================== */
+/* Responsive Layout */
+/* ======================== */
 @media (max-width: 768px) {
   .custom-header {
     flex-direction: column;

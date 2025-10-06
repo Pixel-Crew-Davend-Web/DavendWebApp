@@ -11,7 +11,8 @@ import { ContactPageComponent } from './pages/contact-page/contact-page.componen
 import { CheckoutPageComponent } from './pages/checkout-page/checkout-page.component';
 import { ServiceRequestPageComponent } from './pages/service-request-page/service-request-page.component';
 import { SuccessComponent } from './pages/payment-success/payment-success.component';
-import { AdminOrdersComponent } from './pages/admin-orders/admin-orders.component'; 
+import { AdminOrdersComponent } from './pages/admin-orders/admin-orders.component';
+import { TrackOrderComponent } from './pages/track-order/track-order.component';
 
 const routes: Routes = [
   { path: '', component: LandingPageComponent },
@@ -26,6 +27,8 @@ const routes: Routes = [
   { path: 'register', component: AdminLoginComponent },
   { path: 'checkout', component: CheckoutPageComponent },
   { path: 'success/:id', component: SuccessComponent },
+  { path: 'track-order', component: TrackOrderComponent }, 
+  { path: '**', redirectTo: '' } 
 ];
 
 @NgModule({
