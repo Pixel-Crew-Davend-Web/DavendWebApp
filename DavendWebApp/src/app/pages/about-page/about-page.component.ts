@@ -17,17 +17,39 @@ export class AboutPageComponent implements AfterViewInit {
   userRatingsTotal?: number;
   reviews: GReview[] = [];
 
+  // Mock Data
+    mockReviews = [
+    {
+      author_name: 'Maria Gonzalez',
+      profile_photo_url: 'https://randomuser.me/api/portraits/women/45.jpg',
+      rating: 5,
+      text: 'Absolutely fantastic service! The team was kind, fast, and very professional. I will definitely recommend them to friends.',
+      time: Math.floor(Date.now() / 1000) - 86400 * 5, // 5 days ago
+    },
+    {
+      author_name: 'Jason Park',
+      profile_photo_url: 'https://randomuser.me/api/portraits/men/23.jpg',
+      rating: 4,
+      text: 'Very good experience overall. There was a small delay, but communication was great and the quality of work was excellent.',
+      time: Math.floor(Date.now() / 1000) - 86400 * 12,
+    },
+    {
+      author_name: 'Amelia Chen',
+      profile_photo_url: 'https://randomuser.me/api/portraits/women/66.jpg',
+      rating: 5,
+      text: 'Incredible craftsmanship and attention to detail! I’m so happy I found this company.',
+      time: Math.floor(Date.now() / 1000) - 86400 * 30,
+    }
+  ];
+
   constructor(private zone: NgZone) {}
 
   ngAfterViewInit(): void {
     // Wait for Google to be available (script is async)
     const waitForGoogle = () => {
-      console.log('Waiting for Google...');
       if ((window as any).google?.maps?.places) {
-        console.log('Google available');
         this.loadReviews();
       } else {
-        console.log('Google not available yet');
         requestAnimationFrame(waitForGoogle);
       }
     };
@@ -35,7 +57,6 @@ export class AboutPageComponent implements AfterViewInit {
   }
 
   private loadReviews(): void {
-    console.log('Loading Google reviews...');
     const dummyMapDiv = document.createElement('div'); // PlacesService requires a map or div
     const service = new google.maps.places.PlacesService(dummyMapDiv);
 

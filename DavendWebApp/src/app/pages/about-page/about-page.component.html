@@ -71,4 +71,31 @@
   </div>
 </section>
 
+<section class="reviews reviews--mock">
+  <div class="reviews__header">
+    <h2>Client Testimonials (Preview)</h2>
+    <p>Some of the kind words we’ve received recently:</p>
+  </div>
+
+  <div class="reviews__list">
+    <article class="review" *ngFor="let r of mockReviews">
+      <header class="review__header">
+        <img class="review__avatar" [src]="r.profile_photo_url" alt="{{ r.author_name }}" />
+        <div class="review__meta">
+          <span class="review__author">{{ r.author_name }}</span>
+          <div class="review__starsdate">
+            <ng-container *ngFor="let i of [1,2,3,4,5]; let idx = index">
+              <span class="star" [class.star--filled]="idx < stars(r.rating).full">★</span>
+            </ng-container>
+            <time *ngIf="toDate(r.time) as d" [attr.datetime]="d.toISOString()">
+              • {{ d | date:'mediumDate' }}
+            </time>
+          </div>
+        </div>
+      </header>
+      <p class="review__text">{{ r.text }}</p>
+    </article>
+  </div>
+</section>
+
 <app-footer></app-footer>
