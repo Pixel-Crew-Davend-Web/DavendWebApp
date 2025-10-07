@@ -137,20 +137,98 @@ app.post(
   asyncHandler(async (req, res) => {
     const sig = req.headers["stripe-signature"];
     let event;
+
     try {
-      event = process.env.STRIPE_WEBHOOK_SECRET
-        ? stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET)
-        : JSON.parse(req.body.toString("utf8"));
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
     } catch (e) {
+      console.error("⚠️ Webhook signature verification failed:", e.message);
       return res.status(400).send(`Webhook Error: ${e.message}`);
     }
 
-    if (event.type === "checkout.session.completed") {
-      await handleStripeCheckoutCompleted(event.data.object);
+    try {
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object; 
+
+        const draftId = session?.metadata?.orderDraftId || session.id;
+
+        const pi = await stripe.paymentIntents.retrieve(session.payment_intent, {
+          expand: ["charges.data.balance_transaction"],
+        });
+        const charge = pi.charges?.data?.[0] || null;
+
+        const order = {
+          draft_id: draftId,
+          method: "card",
+          status: "paid",
+          amount: (session.amount_total || 0) / 100,
+          currency: (session.currency || "cad").toLowerCase(),
+          stripe_payment_intent: pi.id,
+          stripe_charge_id: charge?.id || null,
+          reference: charge?.id || null, 
+          message: session.metadata?.message || "",
+          full_name: session.metadata?.fullName || "",
+          email: session.customer_details?.email || "",
+          phone: session.metadata?.phone || "",
+          address: session.metadata?.address || "",
+          city: session.metadata?.city || "",
+          postal_code: session.metadata?.postalCode || "",
+        };
+
+        const { error: upsertErr } = await supabase
+          .from("Orders")
+          .upsert(order, { onConflict: "draft_id" });
+
+        if (upsertErr) {
+          console.error("❌ Failed to upsert Stripe order:", upsertErr);
+          return res.sendStatus(200);
+        }
+
+        const { data: existingItems, error: existErr } = await supabase
+          .from("OrderItems")
+          .select("id")
+          .eq("order_id", draftId)
+          .limit(1);
+
+        if (existErr) {
+          console.error("⚠️ Could not check existing items:", existErr);
+        }
+
+        if (!existingItems || existingItems.length === 0) {
+          const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
+          for (const li of lineItems.data) {
+            const qty = li.quantity || 1;
+            const unit = li.amount_total && qty ? li.amount_total / qty / 100 : 0;
+
+            const { error: itemErr } = await supabase.from("OrderItems").insert({
+              order_id: draftId,
+              product_id: li.price?.product || "adhoc",
+              name: li.description || "Unnamed item",
+              price: unit,
+              qty,
+            });
+            if (itemErr) console.error("⚠️ Failed to insert OrderItem:", itemErr, li);
+          }
+        } else {
+          console.log(`ℹ️ Items already exist for ${draftId}; skipping re-insert.`);
+        }
+
+        console.log("✅ Stripe order saved:", draftId);
+      } else {
+        console.log(`ℹ️ Unhandled Stripe event: ${event.type}`);
+      }
+
+      return res.sendStatus(200);
+    } catch (err) {
+      console.error("❌ Webhook handler error:", err);
+      return res.sendStatus(200);
     }
-    res.sendStatus(200);
   })
 );
+
 
 async function handleStripeCheckoutCompleted(session) {
   const draftId = session?.metadata?.orderDraftId || session.id;
@@ -206,7 +284,7 @@ app.post(
       mode: "payment",
       payment_method_types: ["card"],
       line_items,
-      success_url: `${feBaseUrl()}success/${orderDraftId}`,
+      success_url: `${feBaseUrl()}/success/{CHECKOUT_SESSION_ID}`,  
       cancel_url: `${feBaseUrl()}/checkout`,
       customer_email: customer.email,
       metadata: {

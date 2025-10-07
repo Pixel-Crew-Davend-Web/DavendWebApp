@@ -1,3 +1,101 @@
 <app-header></app-header>
-<p>about-page works!</p>
+
+<section class="about">
+  <h1>About Us</h1>
+  <p>about-page works!</p>
+</section>
+
+<section class="reviews">
+  <div class="reviews__header">
+    <h2>What people say on Google</h2>
+
+    <ng-container *ngIf="!loading && !errorMsg">
+      <a class="reviews__rating" [href]="placeUrl" target="_blank" rel="noopener">
+        <span class="reviews__name">{{ placeName }}</span>
+        <span class="reviews__score">
+          <span class="stars">
+            <ng-container *ngFor="let i of [1,2,3,4,5]; let idx = index">
+              <span
+                class="star"
+                [class.star--filled]="idx < stars(rating).full"
+                [class.star--half]="idx === stars(rating).full && stars(rating).half"
+                >★</span>
+            </ng-container>
+          </span>
+          <span class="reviews__avg">{{ rating?.toFixed(1) }}</span>
+          <span class="reviews__count">({{ userRatingsTotal }} reviews)</span>
+        </span>
+      </a>
+    </ng-container>
+  </div>
+
+  <div *ngIf="loading" class="reviews__loading">Loading Google reviews…</div>
+  <div *ngIf="errorMsg" class="reviews__error">{{ errorMsg }}</div>
+
+  <div class="reviews__list" *ngIf="!loading && !errorMsg">
+    <article class="review" *ngFor="let r of reviews">
+      <header class="review__header">
+        <img
+          class="review__avatar"
+          [src]="r.profile_photo_url || 'https://fonts.gstatic.com/s/i/productlogos/googleg/mark/v13/24px.svg'"
+          alt="{{ r.author_name }}"
+          referrerpolicy="no-referrer"
+        />
+        <div class="review__meta">
+          <a class="review__author" [href]="r.author_url" target="_blank" rel="noopener">
+            {{ r.author_name }}
+          </a>
+          <div class="review__starsdate">
+            <span class="stars">
+              <ng-container *ngFor="let i of [1,2,3,4,5]; let idx = index">
+                <span
+                  class="star"
+                  [class.star--filled]="idx < stars(r.rating).full"
+                  [class.star--half]="idx === stars(r.rating).full && stars(r.rating).half"
+                  >★</span>
+              </ng-container>
+            </span>
+            <time *ngIf="toDate(r.time) as d" [attr.datetime]="d.toISOString()">
+              • {{ d | date:'mediumDate' }}
+            </time>
+          </div>
+        </div>
+      </header>
+      <p class="review__text">{{ r.text }}</p>
+    </article>
+
+    <!-- Required attribution -->
+    <p class="reviews__attrib">
+      Reviews powered by <a [href]="placeUrl" target="_blank" rel="noopener">Google</a>.
+    </p>
+  </div>
+</section>
+
+<section class="reviews reviews--mock">
+  <div class="reviews__header">
+    <h2>Client Testimonials (Preview)</h2>
+    <p>Some of the kind words we’ve received recently:</p>
+  </div>
+
+  <div class="reviews__list">
+    <article class="review" *ngFor="let r of mockReviews">
+      <header class="review__header">
+        <img class="review__avatar" [src]="r.profile_photo_url" alt="{{ r.author_name }}" />
+        <div class="review__meta">
+          <span class="review__author">{{ r.author_name }}</span>
+          <div class="review__starsdate">
+            <ng-container *ngFor="let i of [1,2,3,4,5]; let idx = index">
+              <span class="star" [class.star--filled]="idx < stars(r.rating).full">★</span>
+            </ng-container>
+            <time *ngIf="toDate(r.time) as d" [attr.datetime]="d.toISOString()">
+              • {{ d | date:'mediumDate' }}
+            </time>
+          </div>
+        </div>
+      </header>
+      <p class="review__text">{{ r.text }}</p>
+    </article>
+  </div>
+</section>
+
 <app-footer></app-footer>

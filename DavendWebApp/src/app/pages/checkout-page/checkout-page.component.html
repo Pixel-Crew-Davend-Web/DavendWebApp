@@ -106,9 +106,9 @@
   <div *ngIf="pendingInfo" class="pending-card">
     <h2>Complete Your e-Transfer</h2>
     <p>Amount Due: <strong>{{ pendingInfo.amount | currency:'CAD' }}</strong></p>
-<p>Recipient: <strong>pay&#64;yourdomain.com</strong></p>
+<p>Recipient: <strong>Davendpunch&#64;gmail.com</strong></p>
     <p>Reference Code: <strong>{{ pendingInfo.reference }}</strong></p>
-    <p>Deadline: {{ pendingInfo.deadlineISO | date:'short' }}</p>
+    <p>Please pay by Deadline: {{ pendingInfo.deadlineISO | date:'short' }}</p>
     <p>
       We’ve emailed you these instructions. Once we confirm your payment, a
       receipt will be sent to your inbox.
