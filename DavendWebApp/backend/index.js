@@ -206,7 +206,7 @@ app.post(
       mode: "payment",
       payment_method_types: ["card"],
       line_items,
-      success_url: `${feBaseUrl()}success/${orderDraftId}`,
+      success_url: `${feBaseUrl()}/success/{CHECKOUT_SESSION_ID}`,  
       cancel_url: `${feBaseUrl()}/checkout`,
       customer_email: customer.email,
       metadata: {
