@@ -19,7 +19,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { SuccessComponent } from './pages/payment-success/payment-success.component';
 import { AdminOrdersComponent } from './pages/admin-orders/admin-orders.component';
 import { PopupNotificationComponent } from './components/popup-notification/popup-notification.component';
-import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component'; 
+import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
+import { TrackOrderComponent } from './pages/track-order/track-order.component'; 
 
 
 @NgModule({
@@ -38,6 +39,7 @@ import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dial
     ServiceRequestPageComponent,
     SuccessComponent,
     AdminOrdersComponent,
+    TrackOrderComponent,
   ],
   imports: [
     BrowserModule,

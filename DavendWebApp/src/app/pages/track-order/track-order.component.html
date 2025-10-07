@@ -1,0 +1,64 @@
+<section class="track-order-container">
+    <div class="track-order-card">
+      <h1>Track Your Order</h1>
+      <p class="subtitle">
+        Enter your <strong>Order ID</strong> or <strong>Email Address</strong> below to view your order status.
+      </p>
+  
+      <form class="track-form" (ngSubmit)="checkOrder()">
+        <input
+          type="text"
+          [(ngModel)]="searchTerm"
+          name="search"
+          placeholder="Order ID or Email Address"
+        />
+        <button type="button" (click)="checkOrder()">Check Status</button>
+      </form>
+  
+      <!-- ✅ Show Result -->
+      <div *ngIf="result" class="result-card fade-in">
+        <h3>Order <span class="order-id">#{{ result.id }}</span></h3>
+        <p><strong>Customer:</strong> {{ result.customerName }}</p>
+        <p><strong>Items:</strong> {{ result.items }}</p>
+        <p><strong>Date:</strong> {{ result.date }}</p>
+        <p>
+          <strong>Status:</strong>
+          <span
+            class="status-badge"
+            [style.background]="getStatusColor(result.status)"
+          >
+            {{ result.status }}
+          </span>
+        </p>
+  
+        <!-- ✅ Progress Bar -->
+        <div class="progress-container">
+          <div
+            class="progress-bar"
+            [style.width.%]="getProgressPercent(result.status)"
+          ></div>
+        </div>
+  
+        <!-- ✅ Last Updated -->
+        <p class="last-updated" *ngIf="result?.lastUpdated">
+          Last Updated: {{ result.lastUpdated }}
+        </p>
+      </div>
+  
+      <!-- ⚠️ Show Not Found -->
+      <div *ngIf="notFound" class="not-found fade-in">
+        <p>No order found. Please check your ID or email and try again.</p>
+      </div>
+  
+      <!-- ℹ️ Info Section -->
+      <div class="info-section">
+        <h3>Need Help?</h3>
+        <p>
+          If you’re having trouble finding your order number, please contact our support team at
+          <a href="mailto:info@davendpunch.ca">info&#64;davendpunch.ca</a>
+          or call <strong>905-670-9144</strong>.
+        </p>
+      </div>
+    </div>
+  </section>
+  

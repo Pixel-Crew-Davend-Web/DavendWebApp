@@ -1,5 +1,5 @@
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons"
-      rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
 <!-- ======================== -->
 <!-- Black Header (Contact Info + Auth Links) -->
 <!-- ======================== -->
@@ -21,11 +21,13 @@
     </p>
   </div>
 
-  <!-- Right: Register & Login Links -->
+  <!-- Right: Register | Login | Track Order -->
   <div class="header-right">
-    <button routerLink="/register">Register</button>
+    <a routerLink="/register" class="auth-link">Register</a>
     <span class="divider">|</span>
-    <button routerLink="/login">Login</button>
+    <a routerLink="/login" class="auth-link">Login</a>
+    <span class="divider">|</span>
+    <a routerLink="/track-order" class="auth-link">Track Order</a>
   </div>
 </header>
 
@@ -46,9 +48,7 @@
     <button [ngClass]="{'active-nav': page === 'products'}" routerLink="/products">Our Products</button>
     <button [ngClass]="{'active-nav': page === 'contact'}" routerLink="/contact">Contact</button>
     <button [ngClass]="{'active-nav': page === 'checkout'}" routerLink="/checkout">
-      <span class="material-icons">
-      shopping_cart <!-- Icon for Cart using google fonts -->
-      </span>
+      <span class="material-icons">shopping_cart</span>
     </button>
-  </nav>  
+  </nav>
 </header>
