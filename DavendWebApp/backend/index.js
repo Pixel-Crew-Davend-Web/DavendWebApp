@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 import multer from "multer";
 import paypal from "@paypal/checkout-server-sdk";
 import Stripe from "stripe";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
@@ -33,7 +33,11 @@ const requireEnv = (name, validate) => {
 
 const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY", (v) => v.startsWith("sk_"));
 const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
-const supabase = createSupabaseClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+const SUPABASE_URL = requireEnv("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY); 
+
 const PAYPAL_ENV = process.env.PAYPAL_ENV === "live" ? "live" : "sandbox";
 const PAYPAL_CLIENT_ID = requireEnv("PAYPAL_CLIENT_ID");
 const PAYPAL_CLIENT_SECRET = requireEnv("PAYPAL_CLIENT_SECRET");
@@ -48,31 +52,31 @@ const feBaseUrl = () => {
   if (!/^https?:\/\//.test(url)) throw new Error(`FRONTEND_URL is invalid (got "${url}")`);
   return url;
 };
+const toNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
-const toNum = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-};
+//  Product helpers 
+async function fetchProduct(productIdRaw) {
+  const productId = String(productIdRaw || "").trim();
+  if (!productId) throw new Error("Product not found: <empty id>");
 
-async function fetchProduct(productId) {
   const { data, error } = await supabase
     .from("Products")
-    .select("id, name, price")
+    .select("id,name,price,price_cents,active")
     .eq("id", productId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) throw new Error(`Product not found: ${productId}`);
+  if (error) throw error;
+  if (!data || data.active === false) throw new Error(`Product not found: ${productId}`);
 
-  const priceNum = toNum(data.price);
-  if (!(priceNum > 0)) {
-    console.error("❌ Invalid product price", { productId, name: data.name, rawPrice: data.price });
-    throw new Error(`Invalid price for product ${productId}`);
-  }
+  const unit_amount =
+    typeof data.price_cents === "number" && Number.isFinite(data.price_cents)
+      ? data.price_cents
+      : Math.round(Number(data.price) * 100);
 
-  return { id: data.id, name: data.name ?? `Item ${productId}`, unit_amount: Math.round(priceNum * 100) };
+  if (!(unit_amount > 0)) throw new Error(`Invalid price for product ${productId}`);
+
+  return { id: data.id, name: data.name ?? `Item ${productId}`, unit_amount };
 }
-
-const getServerProduct = (productId) => fetchProduct(productId);
 
 async function buildStripeLineItems(items) {
   const rows = await Promise.all(
@@ -80,7 +84,11 @@ async function buildStripeLineItems(items) {
       const p = await fetchProduct(it.id);
       return {
         quantity: Number(it.qty) || 1,
-        price_data: { currency: "cad", unit_amount: p.unit_amount, product_data: { name: p.name } },
+        price_data: {
+          currency: "cad",
+          unit_amount: p.unit_amount,
+          product_data: { name: p.name },
+        },
       };
     })
   );
@@ -90,12 +98,16 @@ async function buildStripeLineItems(items) {
 async function computeEtransfer(items) {
   let totalCents = 0;
   const normalized = [];
-
   for (const it of items || []) {
     const p = await fetchProduct(it.id);
     const qty = Number(it.qty) || 1;
     totalCents += p.unit_amount * qty;
-    normalized.push({ product_id: p.id, name: it.name || p.name, price: p.unit_amount / 100, qty });
+    normalized.push({
+      product_id: p.id,
+      name: it.name || p.name,
+      price: p.unit_amount / 100, 
+      qty,
+    });
   }
   return { totalCents, normalizedItems: normalized };
 }
@@ -117,11 +129,10 @@ async function insertItem(item) {
   if (error) throw error;
 }
 
-/* ---------- Async wrapper & error middleware ---------- */
-
+// ---- Async wrapper & error middleware
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-app.use((req, res, next) => next()); // placeholder to keep middleware order readable
+app.use((req, res, next) => next());
 
 /* ---------- Stripe webhook (raw body) ---------- */
 app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), async (req, res) => {
@@ -142,12 +153,9 @@ app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), a
   }
 
   try {
-    const s = event.data.object; 
+    const s = event.data.object;
     const order = {
-      draft_id:
-        s?.metadata?.orderDraftId ??
-        s?.metadata?.draft_id ??
-        null,
+      draft_id: s?.metadata?.orderDraftId ?? s?.metadata?.draft_id ?? null,
       email: s?.customer_details?.email ?? s?.customer_email ?? null,
       name: s?.customer_details?.name ?? s?.metadata?.fullName ?? null,
       amount_total: s?.amount_total ?? null,
@@ -155,7 +163,7 @@ app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), a
       status: "paid",
       checkout_session_id: s?.id ?? null,
       payment_intent_id: s?.payment_intent ?? null,
-      reference: s?.payment_intent ?? null, 
+      reference: s?.payment_intent ?? null,
       address: s?.metadata?.address ?? null,
       city: s?.metadata?.city ?? null,
       postal_code: s?.metadata?.postalCode ?? null,
@@ -164,13 +172,9 @@ app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), a
       source: "stripe",
     };
 
-    if (!order.draft_id) {
-      return res.status(500).send("missing draft_id");
-    }
-    const { error } = await supabase
-      .from("Orders")
-      .upsert(order, { onConflict: "draft_id" });
+    if (!order.draft_id) return res.status(500).send("missing draft_id");
 
+    const { error } = await supabase.from("Orders").upsert(order, { onConflict: "draft_id" });
     if (error) {
       console.error("Orders upsert failed:", error.message || error);
       return res.status(500).send("db fail");
@@ -183,254 +187,256 @@ app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), a
   }
 });
 
-app.use(bodyParser.json());
-
-async function handleStripeCheckoutCompleted(session) {
-  const draftId = session?.metadata?.orderDraftId || session.id;
-
-  const order = await insertOrder({
-    draft_id: draftId,
-    stripe_payment_intent: session.payment_intent,
-    status: "paid",
-    method: "card",
-    reference: null,
-    message: session.metadata?.message || "",
-    amount: (session.amount_total || 0) / 100,
-    currency: (session.currency || "cad").toLowerCase(),
-    full_name: session.metadata?.fullName || "",
-    email: session.customer_details?.email || "",
-    phone: session.metadata?.phone || "",
-    address: session.metadata?.address || "",
-    city: session.metadata?.city || "",
-    postal_code: session.metadata?.postalCode || "",
-  });
-
-  const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
-  for (const li of lineItems.data) {
-    const qty = li.quantity || 1;
-    const unit = li.amount_total && qty ? li.amount_total / qty / 100 : 0;
-    await insertItem({
-      order_id: order.draft_id,
-      product_id: li.price?.product || "adhoc",
-      name: li.description || "Unnamed item",
-      price: unit,
-      qty,
-    });
-  }
-}
-
-/* ---------- JSON parser (after webhook) ---------- */
 
 app.use(bodyParser.json());
 
 /* ---------- Health ---------- */
-
 app.get("/", (_req, res) => res.send("Davend Email + Payments Backend Running ✔️"));
 
 /* ---------- Stripe (card) ---------- */
-
 app.post(
   "/api/payments/checkout-session",
   asyncHandler(async (req, res) => {
-    const { items = [], customer = {}, orderDraftId = "" } = req.body;
-    const line_items = await buildStripeLineItems(items);
+    try {
+      const { items = [], customer = {}, orderDraftId = "" } = req.body;
+      const line_items = await buildStripeLineItems(items);
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items,
-      success_url: `${feBaseUrl()}/success/{CHECKOUT_SESSION_ID}`,  
-      cancel_url: `${feBaseUrl()}/checkout`,
-      customer_email: customer.email,
-      metadata: {
-        orderDraftId,
-        fullName: customer.fullName ?? "",
-        phone: customer.phone ?? "",
-        address: customer.address ?? "",
-        city: customer.city ?? "",
-        postalCode: customer.postalCode ?? "",
-        message: customer.message ?? "",
-      },
-    });
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        payment_method_types: ["card"],
+        line_items,
+        success_url: `${feBaseUrl()}/success/{CHECKOUT_SESSION_ID}`,
+        cancel_url: `${feBaseUrl()}/checkout`,
+        customer_email: customer.email,
+        metadata: {
+          orderDraftId,
+          fullName: customer.fullName ?? "",
+          phone: customer.phone ?? "",
+          address: customer.address ?? "",
+          city: customer.city ?? "",
+          postalCode: customer.postalCode ?? "",
+          message: customer.message ?? "",
+        },
+      });
 
-    res.json({ id: session.id });
+      return res.json({ id: session.id });
+    } catch (err) {
+      if (String(err?.message || "").startsWith("Product not found:")) {
+        return res.status(404).send("Product not found");
+      }
+      console.error("❌ checkout-session failed:", err);
+      return res.status(500).send("Internal server error");
+    }
   })
 );
 
 /* ---------- E-Transfer (pending) ---------- */
-
 app.post(
   "/api/payments/etransfer-order",
   asyncHandler(async (req, res) => {
-    const { items = [], customer = {}, orderDraftId = "", reference: refIn } = req.body;
-    const reference = (refIn && String(refIn).trim()) || `ET-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    const { totalCents, normalizedItems } = await computeEtransfer(items);
+    try {
+      const { items = [], customer = {}, orderDraftId = "", reference: refIn } = req.body;
+      const reference = (refIn && String(refIn).trim()) || `ET-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+      const { totalCents, normalizedItems } = await computeEtransfer(items);
 
-    const order = await insertOrder({
-      draft_id: orderDraftId,
-      status: "pending",
-      method: "etransfer",
-      reference,
-      message: customer.message || "",
-      amount: Math.round(totalCents) / 100,
-      currency: "cad",
-      full_name: customer.fullName || "",
-      email: customer.email || "",
-      phone: customer.phone || "",
-      address: customer.address || "",
-      city: customer.city || "",
-      postal_code: customer.postalCode || "",
-    });
+      const order = await insertOrder({
+        draft_id: orderDraftId,
+        status: "pending",
+        method: "etransfer",
+        reference,
+        message: customer.message || "",
+        amount: Math.round(totalCents) / 100,
+        currency: "cad",
+        full_name: customer.fullName || "",
+        email: customer.email || "",
+        phone: customer.phone || "",
+        address: customer.address || "",
+        city: customer.city || "",
+        postal_code: customer.postalCode || "",
+      });
 
-    for (const ni of normalizedItems) {
-      await insertItem({ order_id: order.draft_id, product_id: ni.product_id, name: ni.name, price: ni.price, qty: ni.qty });
+      for (const ni of normalizedItems) {
+        await insertItem({
+          order_id: order.draft_id,
+          product_id: ni.product_id,
+          name: ni.name,
+          price: ni.price,
+          qty: ni.qty,
+        });
+      }
+
+      return res.json({ message: "Order created with status pending", order });
+    } catch (err) {
+      if (String(err?.message || "").startsWith("Product not found:")) {
+        return res.status(404).send("Product not found");
+      }
+      console.error("❌ etransfer failed:", err);
+      return res.status(500).send("Internal server error");
     }
-
-    res.json({ message: "Order created with status pending", order });
   })
 );
 
 /* ---------- PayPal: create ---------- */
-
 app.post(
   "/api/payments/paypal/create-order",
   asyncHandler(async (req, res) => {
-    const { items = [], orderDraftId = "" } = req.body;
+    try {
+      const { items = [], orderDraftId = "" } = req.body;
 
-    const ppItems = [];
-    let total = 0;
-    for (const it of items) {
-      const p = await getServerProduct(it.id);
-      const qty = Number(it.qty) || 1;
-      const unit = p.unit_amount / 100;
-      total += unit * qty;
-      ppItems.push({
-        name: p.name,
-        sku: p.id,
-        quantity: String(qty),
-        unit_amount: { currency_code: "CAD", value: unit.toFixed(2) },
-      });
-    }
+      const ppItems = [];
+      let total = 0;
+      for (const it of items) {
+        const p = await fetchProduct(it.id);
+        const qty = Number(it.qty) || 1;
+        const unit = p.unit_amount / 100;
+        total += unit * qty;
+        ppItems.push({
+          name: p.name,
+          sku: p.id,
+          quantity: String(qty),
+          unit_amount: { currency_code: "CAD", value: unit.toFixed(2) },
+        });
+      }
 
-    const request = new paypal.orders.OrdersCreateRequest();
-    request.prefer("return=representation");
-    request.requestBody({
-      intent: "CAPTURE",
-      purchase_units: [
-        {
-          reference_id: orderDraftId,
-          amount: {
-            currency_code: "CAD",
-            value: total.toFixed(2),
-            breakdown: { item_total: { currency_code: "CAD", value: total.toFixed(2) } },
+      const request = new paypal.orders.OrdersCreateRequest();
+      request.prefer("return=representation");
+      request.requestBody({
+        intent: "CAPTURE",
+        purchase_units: [
+          {
+            reference_id: orderDraftId,
+            amount: {
+              currency_code: "CAD",
+              value: total.toFixed(2),
+              breakdown: { item_total: { currency_code: "CAD", value: total.toFixed(2) } },
+            },
+            items: ppItems,
           },
-          items: ppItems,
-        },
-      ],
-    });
+        ],
+      });
 
-    const order = await payPalClient.execute(request);
-    res.json({ id: order.result.id });
+      const order = await payPalClient.execute(request);
+      return res.json({ id: order.result.id });
+    } catch (err) {
+      if (String(err?.message || "").startsWith("Product not found:")) {
+        return res.status(404).send("Product not found");
+      }
+      console.error("❌ paypal create failed:", err);
+      return res.status(500).send("Internal server error");
+    }
   })
 );
 
 /* ---------- PayPal: capture ---------- */
-
 app.post(
   "/api/payments/paypal/capture-order",
   asyncHandler(async (req, res) => {
-    const { orderID, orderDraftId, customer = {}, items = [] } = req.body;
-
-    const capReq = new paypal.orders.OrdersCaptureRequest(orderID);
-    capReq.requestBody({});
-    const capRes = await payPalClient.execute(capReq);
-
-    const pu = capRes.result?.purchase_units?.[0];
-    const cap = pu?.payments?.captures?.[0];
-    const capturedAmount = toNum(cap?.amount?.value);
-    const capturedCurrency = String(cap?.amount?.currency_code || "CAD").toLowerCase();
-
-    const order = await upsertOrder({
-      draft_id: orderDraftId,
-      status: "paid",
-      method: "paypal",
-      reference: capRes.result.id,
-      message: customer.message || "",
-      amount: capturedAmount,
-      currency: capturedCurrency,
-      full_name: customer.fullName || "",
-      email: customer.email || "",
-      phone: customer.phone || "",
-      address: customer.address || "",
-      city: customer.city || "",
-      postal_code: customer.postalCode || "",
-    });
-
-    let itemsToInsert = [];
     try {
-      const getReq = new paypal.orders.OrdersGetRequest(orderID);
-      const getRes = await payPalClient.execute(getReq);
-      const ppItems = getRes.result?.purchase_units?.[0]?.items || [];
-      itemsToInsert =
-        ppItems.length > 0
-          ? ppItems.map((i) => ({
-              productIdFromSku: i.sku || null,
-              name: i.name,
-              qty: Number(i.quantity || 1),
-              unitAmountFromGateway: toNum(i.unit_amount?.value),
-            }))
-          : [];
-    } catch {
-      itemsToInsert = [];
-    }
+      const { orderID, orderDraftId, customer = {}, items = [] } = req.body;
 
-    if (itemsToInsert.length === 0 && Array.isArray(items) && items.length > 0) {
-      itemsToInsert = items.map((it) => ({
-        productIdFromSku: it.id || null,
-        name: it.name,
-        qty: Number(it.qty || 1),
-        unitAmountFromGateway: null,
-      }));
-    }
+      // Capture
+      const capReq = new paypal.orders.OrdersCaptureRequest(orderID);
+      capReq.requestBody({});
+      const capRes = await payPalClient.execute(capReq);
 
-    const { data: existing } = await supabase.from("OrderItems").select("id").eq("order_id", orderDraftId).limit(1);
-    const hasItems = Array.isArray(existing) && existing.length > 0;
+      const pu = capRes.result?.purchase_units?.[0];
+      const cap = pu?.payments?.captures?.[0];
+      const capturedAmount = toNum(cap?.amount?.value);
+      const capturedCurrency = String(cap?.amount?.currency_code || "CAD").toLowerCase();
 
-    if (!hasItems && itemsToInsert.length > 0) {
-      for (const it of itemsToInsert) {
-        const qty = Number(it.qty) || 1;
-        let productId = it.productIdFromSku;
-        let name;
-        let price;
+      // Upsert order
+      const order = await upsertOrder({
+        draft_id: orderDraftId,
+        status: "paid",
+        method: "paypal",
+        reference: capRes.result.id,
+        message: customer.message || "",
+        amount: capturedAmount,
+        currency: capturedCurrency,
+        full_name: customer.fullName || "",
+        email: customer.email || "",
+        phone: customer.phone || "",
+        address: customer.address || "",
+        city: customer.city || "",
+        postal_code: customer.postalCode || "",
+      });
 
-        if (productId) {
-          const p = await fetchProduct(productId);
-          productId = p.id;
-          name = it.name || p.name;
-          price = p.unit_amount / 100;
-        } else {
-          name = it.name || "Unnamed item";
-          price = typeof it.unitAmountFromGateway === "number" ? it.unitAmountFromGateway : 0;
-          productId = "adhoc";
-        }
-
-        await insertItem({ order_id: orderDraftId, product_id: String(productId), name, price, qty });
+      // Build items from PayPal 
+      let itemsToInsert = [];
+      try {
+        const getReq = new paypal.orders.OrdersGetRequest(orderID);
+        const getRes = await payPalClient.execute(getReq);
+        const ppItems = getRes.result?.purchase_units?.[0]?.items || [];
+        itemsToInsert =
+          ppItems.length > 0
+            ? ppItems.map((i) => ({
+                productIdFromSku: i.sku || null,
+                name: i.name,
+                qty: Number(i.quantity || 1),
+                unitAmountFromGateway: toNum(i.unit_amount?.value),
+              }))
+            : [];
+      } catch {
+        itemsToInsert = [];
       }
-    }
+      if (itemsToInsert.length === 0 && Array.isArray(items) && items.length > 0) {
+        itemsToInsert = items.map((it) => ({
+          productIdFromSku: it.id || null,
+          name: it.name,
+          qty: Number(it.qty || 1),
+          unitAmountFromGateway: null,
+        }));
+      }
 
-    res.json({ status: "success", order });
+      // Skip if items already there
+      const { data: existing } = await supabase.from("OrderItems").select("id").eq("order_id", orderDraftId).limit(1);
+      const hasItems = Array.isArray(existing) && existing.length > 0;
+
+      if (!hasItems && itemsToInsert.length > 0) {
+        for (const it of itemsToInsert) {
+          const qty = Number(it.qty) || 1;
+          let productId = it.productIdFromSku;
+          let name;
+          let price;
+
+          if (productId) {
+            const p = await fetchProduct(productId);
+            productId = p.id;
+            name = it.name || p.name;
+            price = p.unit_amount / 100;
+          } else {
+            name = it.name || "Unnamed item";
+            price = typeof it.unitAmountFromGateway === "number" ? it.unitAmountFromGateway : 0;
+            productId = "adhoc";
+          }
+
+          await insertItem({
+            order_id: orderDraftId,
+            product_id: String(productId),
+            name,
+            price,
+            qty,
+          });
+        }
+      }
+
+      return res.json({ status: "success", order });
+    } catch (err) {
+      if (String(err?.message || "").startsWith("Product not found:")) {
+        return res.status(404).send("Product not found");
+      }
+      console.error("❌ paypal capture failed:", err);
+      return res.status(500).send("Internal server error");
+    }
   })
 );
 
 /* ---------- Success helpers ---------- */
-
-// Unified success payload: works with Stripe session IDs (cs_*) and PayPal draft_ids (ORD-####)
 app.get(
   "/api/payments/session/:id",
   asyncHandler(async (req, res) => {
     const id = req.params.id;
 
-    // Try Stripe session first if it looks like one
     if (id.startsWith("cs_")) {
       try {
         const session = await stripe.checkout.sessions.retrieve(id);
@@ -452,11 +458,9 @@ app.get(
         };
         return res.json({ session, order });
       } catch {
-        // fall through to draft_id lookup
       }
     }
 
-    // Fallback: treat :id as an Orders.draft_id (PayPal / E-Transfer)
     const { data: o } = await supabase
       .from("Orders")
       .select(
@@ -467,7 +471,6 @@ app.get(
 
     if (!o) return res.status(404).json({ error: "Session or order not found" });
 
-    // Shape matches your success screen bindings (order.customer.*)
     const order = {
       id: o.draft_id,
       date: new Date(o.created_at).toISOString(),
@@ -488,7 +491,6 @@ app.get(
     return res.json({ order });
   })
 );
-
 
 app.get(
   "/api/orders/:draftId",
@@ -560,7 +562,6 @@ app.get(
 );
 
 /* ---------- Email endpoints ---------- */
-
 app.post(
   "/service-send-email",
   upload.single("designFile"),
@@ -633,12 +634,10 @@ ${message}`,
 );
 
 /* ---------- Errors ---------- */
-
 app.use((err, _req, res, _next) => {
   console.error("❌ Unhandled error:", err?.raw?.message || err?.message || err);
   res.status(500).json({ error: err?.raw?.message || err?.message || "Internal server error" });
 });
 
 /* ---------- Start ---------- */
-
 app.listen(PORT, () => console.log(`✅ Server running at http://localhost:${PORT}`));
