@@ -1,18 +1,39 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
-<!-- ======================== -->
-<!-- Black Header (Contact Info + Auth Links) -->
-<!-- ======================== -->
-<header class="custom-header">
-  <!-- Left: Address -->
-  <div class="header-left">
-    <p>
-      6720 Davand Drive, Unit#9 Mississauga, Ontario<br>
-      Canada, ON L5T 2K7
-    </p>
+<!-- White Header (Logo + Nav) -->
+<header class="top-header">
+
+  <!-- icons -->
+  <div class="mobile-controls">
+    <button class="checkout-btn" routerLink="/checkout">
+      <span class="material-icons">shopping_cart</span>
+    </button>
+    <button class="hamburger-btn" (click)="toggleMenu()">
+      <span class="material-icons">menu</span>
+    </button>
   </div>
 
-  <!-- Center: Phone, Fax, Email -->
+  <!--logo -->
+  <div class="logo-section">
+    <img src="assets/comp.png" alt="Company Logo" class="logo-img">
+  </div>
+
+  <!-- nav menu -->
+  <nav class="nav-links" [class.open]="menuOpen">
+    <button [ngClass]="{'active-nav': page === 'home'}" routerLink="/">Home</button>
+    <button [ngClass]="{'active-nav': page === 'about'}" routerLink="/about">About</button>
+    <button [ngClass]="{'active-nav': page === 'services'}" routerLink="/services">Our Services</button>
+    <button [ngClass]="{'active-nav': page === 'products'}" routerLink="/products">Our Products</button>
+    <button [ngClass]="{'active-nav': page === 'contact'}" routerLink="/contact">Contact</button>
+  </nav>
+</header>
+
+<!-- Black Header  -->
+<header class="custom-header">
+  <div class="header-left">
+    <p>6720 Davand Drive, Unit#9 Mississauga, Ontario<br>Canada, ON L5T 2K7</p>
+  </div>
+
   <div class="header-center">
     <p>
       P: 905-670-9144<br>
@@ -21,7 +42,6 @@
     </p>
   </div>
 
-  <!-- Right: Register | Login | Track Order -->
   <div class="header-right">
     <a routerLink="/register" class="auth-link">Register</a>
     <span class="divider">|</span>
@@ -29,26 +49,4 @@
     <span class="divider">|</span>
     <a routerLink="/track-order" class="auth-link">Track Order</a>
   </div>
-</header>
-
-<!-- ======================== -->
-<!-- White Header (Logo + Nav) -->
-<!-- ======================== -->
-<header class="top-header">
-  <!-- Company Logo -->
-  <div class="logo-section">
-    <img src="assets/comp.png" alt="Company Logo" class="logo-img">
-  </div>
-
-  <!-- Navigation Links -->
-  <nav class="nav-links">
-    <button [ngClass]="{'active-nav': page === 'home'}" routerLink="/">Home</button>
-    <button [ngClass]="{'active-nav': page === 'about'}" routerLink="/about">About</button>
-    <button [ngClass]="{'active-nav': page === 'services'}" routerLink="/services">Our Services</button>
-    <button [ngClass]="{'active-nav': page === 'products'}" routerLink="/products">Our Products</button>
-    <button [ngClass]="{'active-nav': page === 'contact'}" routerLink="/contact">Contact</button>
-    <button [ngClass]="{'active-nav': page === 'checkout'}" routerLink="/checkout">
-      <span class="material-icons">shopping_cart</span>
-    </button>
-  </nav>
 </header>

@@ -11,23 +11,23 @@
   flex-wrap: wrap;
 }
 
+
+
 .custom-header p {
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.4;
 }
 
-/* === Updated Auth Links (Register | Login | Track Order) === */
 .custom-header a {
   color: #fff;
   text-decoration: none;
-  font-weight: normal; /* unbolded */
+  font-weight: normal;
   margin-left: 1rem;
   position: relative;
   transition: color 0.3s ease;
 }
 
-/* Smooth underline hover animation */
 .custom-header a::after {
   content: '';
   position: absolute;
@@ -40,7 +40,7 @@
 }
 
 .custom-header a:hover {
-  color: #ddd; /* soft fade */
+  color: #ddd;
 }
 
 .custom-header a:hover::after {
@@ -59,23 +59,9 @@
   align-items: center;
 }
 
-.header-right button {
-  border: none;
-  cursor: pointer;
-  background-color: #000;
-  color: white;
-}
-
-.header-right button:hover {
-  cursor: pointer;
-  border-bottom: solid white;
-  transform: scale(1.1);
-  transition: all 0.3s ease;
-}
-
 .divider {
   margin: 0 0.5rem;
-  color: #aaa; /* softened divider */
+  color: #aaa;
 }
 
 .top-header {
@@ -105,8 +91,8 @@
   font-size: 25px;
   background-color: white;
   border: none;
-  padding: 0.5rem 1rem; 
-  border-bottom: 3px solid transparent; 
+  padding: 0.5rem 1rem;
+  border-bottom: 3px solid transparent;
   transition: all 0.3s ease;
 }
 
@@ -114,55 +100,8 @@
   cursor: pointer;
   border-bottom: solid #000;
   transform: scale(1.1);
-  transition: all 0.3s ease;
 }
 
 .active-nav {
-  border-bottom: 3px solid black !important; 
-}
-
-/* ======================== */
-/* Responsive Layout */
-/* ======================== */
-@media (max-width: 768px) {
-  .custom-header {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 1rem;
-    text-align: left;
-  }
-
-  .header-left,
-  .header-center,
-  .header-right {
-    width: 100%;
-    margin-bottom: 1rem;
-  }
-
-  .header-right {
-    justify-content: flex-start;
-    gap: 1rem;
-  }
-
-  .top-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .nav-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-
-  .nav-links button {
-    font-size: 18px;
-    margin-left: 0;
-    padding: 0.5rem;
-  }
-
-  .logo-img {
-    height: 70px;
-  }
+  border-bottom: 3px solid black !important;
 }

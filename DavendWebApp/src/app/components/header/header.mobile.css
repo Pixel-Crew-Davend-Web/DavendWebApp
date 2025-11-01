@@ -1,0 +1,136 @@
+.mobile-controls {
+  display: none !important;
+}
+
+/* ======================== */
+/* Mobile Layout */
+/* ======================== */
+@media (max-width: 950px) {
+  .top-header {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 1rem;
+    border-top: 3px solid black;
+    background-color: white;
+  }
+
+  .logo-section {
+    margin-left: auto;
+  }
+
+  .logo-img {
+    height: 100px;
+    max-height: 105px;
+    width: auto;
+  }
+
+  /* Icons*/
+  .mobile-controls {
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.6rem;
+    z-index: 3000;
+  }
+
+  .checkout-btn,
+  .hamburger-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: black;
+    font-size: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+  }
+
+  .checkout-btn:hover,
+  .hamburger-btn:hover {
+    transform: scale(1.1);
+  }
+
+  /* --- Slide-out Drawer --- */
+  .nav-links {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    height: 100vh;
+    width: 250px;
+    background-color: white;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+    gap: 1.5rem;
+    transition: left 0.3s ease;
+    z-index: 2000;
+    pointer-events: none;
+  }
+
+  .nav-links.open {
+    left: 0;
+    pointer-events: auto;
+  }
+
+  .nav-links button {
+    font-size: 20px;
+    margin-left: 0;
+    background: none;
+    border: none;
+    text-align: left;
+  }
+
+  .top-header .nav-links:not(.open) {
+    display: none;
+  }
+
+  .custom-header {
+    background-color: #000;
+    color: #fff;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.6rem;
+    flex-direction: column;
+  }
+
+  .header-left,
+  .header-center {
+    display: none;
+  }
+
+  .header-right {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .header-right a {
+    margin: 0 0.6rem;
+    color: #fff;
+    text-decoration: none;
+    font-size: 16px;
+  }
+
+  .divider {
+    margin: 0 0.3rem;
+  }
+}
+.nav-links.open ~ .mobile-controls,
+.mobile-controls.menu-active {
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .mobile-controls {
+    transition: opacity 0.3s ease;
+  }
+}
