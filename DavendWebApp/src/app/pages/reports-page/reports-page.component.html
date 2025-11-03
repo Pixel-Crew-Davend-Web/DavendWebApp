@@ -1,0 +1,147 @@
+<div class="inv-shell">
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo-dot"></span>
+      <h1>Reports</h1>
+    </div>
+
+    <div class="nav-buttons">
+      <button routerLink="/" class="btn btn-secondary">🏠 Home</button>
+      <button routerLink="/login" class="btn btn-secondaryT">🔐 Admin Dashboard</button>
+      <button (click)="refreshList()" class="btn btn-ghost">🔄 Refresh</button>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- Generate Form -->
+    <section class="panel">
+      <h2 class="panel-title">Generate a new report</h2>
+
+      <form [formGroup]="form" class="form-grid" (ngSubmit)="onGenerate()">
+        <!-- Type -->
+        <div class="field">
+          <label>Type</label>
+          <select formControlName="type" class="input">
+            <option *ngFor="let opt of typeOptions" [value]="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+
+        <!-- From -->
+        <div class="field">
+          <label>From</label>
+          <input type="date" formControlName="from" class="input" />
+        </div>
+
+        <!-- To -->
+        <div class="field">
+          <label>To</label>
+          <input type="date" formControlName="to" class="input" />
+        </div>
+
+        <!-- Group By (depends on Type) -->
+        <div class="field">
+          <label>Group By</label>
+          <select formControlName="groupBy" class="input">
+            <option *ngFor="let opt of groupByOptions" [value]="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" type="submit" [disabled]="isGenerating || form.invalid">
+            <span *ngIf="!isGenerating">📄 Generate Report</span>
+            <span *ngIf="isGenerating">⏳ Generating…</span>
+          </button>
+        </div>
+      </form>
+
+      <div class="callout warn" *ngIf="hasGeneratedThisSession">
+        Report created. Scroll down to the list to view or download it.
+      </div>
+    </section>
+
+    <!-- Existing Reports -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">All Reports</h2>
+        <div class="hint">Bucket: <span class="badge">Reports</span></div>
+      </div>
+
+      <!-- Empty state -->
+      <div class="empty" *ngIf="isEmpty">
+        <div class="empty-emoji">🗂️</div>
+        <div class="empty-title">No reports yet</div>
+        <div class="empty-sub">Generate your first report using the form above.</div>
+      </div>
+
+      <!-- Loading -->
+      <div class="loading" *ngIf="loadingList">
+        <div class="spinner"></div>
+        Loading reports…
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap" *ngIf="!loadingList && !isEmpty">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="sticky">Report</th>
+              <th>CSV</th>
+              <th>PDF</th>
+              <th class="fit">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of rows">
+              <td>
+                <div class="file-name">
+                  <span class="logo-dot tiny"></span>
+                  <strong>{{ r.base }}</strong>
+                </div>
+              </td>
+
+              <td>
+                <div class="file-chip" *ngIf="r.csv; else noCsv">
+                  <span class="badge">.csv</span>
+                </div>
+                <ng-template #noCsv>
+                  <span class="muted">—</span>
+                </ng-template>
+              </td>
+
+              <td>
+                <div class="file-chip" *ngIf="r.pdf; else noPdf">
+                  <span class="badge">.pdf</span>
+                </div>
+                <ng-template #noPdf>
+                  <span class="muted">—</span>
+                </ng-template>
+              </td>
+
+              <td class="fit">
+                <div class="row-actions">
+                  <button class="btn btn-ghost" (click)="onView(r, 'csv')" [disabled]="!r.csv">👁️ View CSV</button>
+                  <button class="btn btn-ghost" (click)="onView(r, 'pdf')" [disabled]="!r.pdf">👁️ View PDF</button>
+                  <button class="btn btn-secondary" (click)="onDownload(r, 'csv')" [disabled]="!r.csv">⬇️ CSV</button>
+                  <button class="btn btn-secondary" (click)="onDownload(r, 'pdf')" [disabled]="!r.pdf">⬇️ PDF</button>
+                  <button
+                    class="btn btn-danger"
+                    (click)="onDelete(r)"
+                    [disabled]="deleting[r.base]"
+                    >
+                    <span *ngIf="!deleting[r.base]">🗑️ Delete</span>
+                    <span *ngIf="deleting[r.base]">…</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>

@@ -21,6 +21,7 @@ import { AdminOrdersComponent } from './pages/admin-orders/admin-orders.componen
 import { PopupNotificationComponent } from './components/popup-notification/popup-notification.component';
 import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
 import { TrackOrderComponent } from './pages/track-order/track-order.component'; 
+import { ReportsComponent } from './pages/reports-page/reports-page.component';
 
 
 @NgModule({
@@ -40,6 +41,7 @@ import { TrackOrderComponent } from './pages/track-order/track-order.component';
     SuccessComponent,
     AdminOrdersComponent,
     TrackOrderComponent,
+    ReportsComponent
   ],
   imports: [
     BrowserModule,
@@ -47,7 +49,9 @@ import { TrackOrderComponent } from './pages/track-order/track-order.component';
     FormsModule,
     ReactiveFormsModule,
     PopupNotificationComponent,
-    ConfirmDialogComponent
+    ConfirmDialogComponent,
+    FormsModule,
+    ReactiveFormsModule
 ],
   providers: [provideHttpClient()],
   bootstrap: [AppComponent]

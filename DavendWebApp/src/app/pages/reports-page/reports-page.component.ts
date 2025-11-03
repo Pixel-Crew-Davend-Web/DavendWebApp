@@ -1,0 +1,230 @@
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReportsService, ReportParams, ReportType, GroupBy } from '../../services/reports.service';
+
+type ReportRow = {
+  base: string;
+  csv: { name: string; signedUrl?: string | null } | null;
+  pdf: { name: string; signedUrl?: string | null } | null;
+};
+
+@Component({
+  selector: 'app-reports',
+  templateUrl: './reports-page.component.html', // your HTML
+  styleUrls: ['./reports-page.component.css'],   // your CSS (style like Inventory page)
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+export class ReportsComponent implements OnInit {
+
+  form!: FormGroup;
+
+  // UI state
+  loadingGenerate = false;
+  loadingList = false;
+  deleting: Record<string, boolean> = {};
+  hasGeneratedThisSession = false;
+
+  // Table data
+  rows: ReportRow[] = [];
+  displayedColumns = ['name', 'actions']; // keep simple; expand in HTML
+
+  // Option lists
+  typeOptions: { label: string; value: ReportType }[] = [
+    { label: 'By Orders', value: 'byOrders' },
+    { label: 'By Products', value: 'byProducts' }
+  ];
+
+  ordersGroupByOptions: { label: string; value: GroupBy }[] = [
+    { label: 'Day', value: 'day' },
+    { label: 'Customer Name', value: 'name' },
+    { label: 'Email', value: 'email' },
+    { label: 'Status', value: 'status' },
+    { label: 'Payment Method', value: 'method' }
+  ];
+
+  productsGroupByOptions: { label: string; value: GroupBy }[] = [
+    { label: 'Name (1 row per product)', value: 'name' },
+    { label: 'Active (true/false)', value: 'active' }
+  ];
+
+  // derived: current options shown in the Group By select
+  get groupByOptions() {
+    return this.form?.value?.type === 'byProducts'
+      ? this.productsGroupByOptions
+      : this.ordersGroupByOptions;
+  }
+
+  constructor(
+    private fb: FormBuilder,
+    private reports: ReportsService
+  ) {}
+
+  ngOnInit(): void {
+    this.form = this.fb.group({
+      type: ['byOrders' as ReportType, Validators.required],
+      from: [this.defaultFromDateISO(), Validators.required],
+      to: [this.defaultToDateISO(), Validators.required],
+      groupBy: ['day' as GroupBy, Validators.required]
+    });
+
+    // If type changes, ensure a valid groupBy is selected for that type
+    this.form.get('type')!.valueChanges.subscribe((val: ReportType) => {
+      const gbCtrl = this.form.get('groupBy')!;
+      if (val === 'byProducts') {
+        if (!['name', 'active'].includes(gbCtrl.value)) {
+          gbCtrl.setValue('name');
+        }
+      } else {
+        if (!['day', 'name', 'email', 'status', 'method'].includes(gbCtrl.value)) {
+          gbCtrl.setValue('day');
+        }
+      }
+    });
+
+    this.refreshList();
+  }
+
+  /* =======================
+   * Actions
+   * ======================= */
+
+  async onGenerate() {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const { type, from, to, groupBy } = this.form.value;
+
+    // Convert string dates (yyyy-mm-dd) to Date objects
+    const params: ReportParams = {
+      type,
+      from: this.asDate(from),
+      to: this.asDate(to, true), // include the end day to 23:59:59
+      groupBy
+    };
+
+    this.loadingGenerate = true;
+    try {
+      await this.reports.generateAndStoreReport(params);
+      this.hasGeneratedThisSession = true;
+      await this.refreshList();
+      // Optional: toast success
+      // this.toast.success('Report generated and saved to Reports bucket.');
+    } catch (err: any) {
+      console.error(err);
+      // this.toast.error(err?.message || 'Failed to generate report.');
+      alert(err?.message || 'Failed to generate report.');
+    } finally {
+      this.loadingGenerate = false;
+    }
+  }
+
+  async refreshList() {
+    this.loadingList = true;
+    try {
+      this.rows = await this.reports.listReports(200);
+    } catch (err: any) {
+      console.error(err);
+      // this.toast.error(err?.message || 'Failed to load reports.');
+      alert(err?.message || 'Failed to load reports.');
+      this.rows = [];
+    } finally {
+      this.loadingList = false;
+    }
+  }
+
+  async onView(row: ReportRow, which: 'csv' | 'pdf') {
+    const file = which === 'csv' ? row.csv : row.pdf;
+    if (!file) return;
+
+    // Ensure a fresh signed URL (short TTL for safety)
+    try {
+      const url = await this.reports.getSignedUrl(file.name, 60 * 15);
+      window.open(url, '_blank');
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || 'Could not open file.');
+    }
+  }
+
+  async onDownload(row: ReportRow, which: 'csv' | 'pdf') {
+    const file = which === 'csv' ? row.csv : row.pdf;
+    if (!file) return;
+
+    try {
+      const url = await this.reports.getSignedUrl(file.name, 60 * 15);
+      // Force download by creating an anchor
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name.split('/').pop() || file.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || 'Could not download file.');
+    }
+  }
+
+  async onDelete(row: ReportRow) {
+    const base = row.base;
+    const confirmMsg = `Delete report "${base}" (CSV and PDF)?`;
+    if (!confirm(confirmMsg)) return;
+
+    this.deleting[base] = true;
+    try {
+      await this.reports.deleteReportByBaseName(base);
+      await this.refreshList();
+      // this.toast.success('Report deleted.');
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || 'Failed to delete report.');
+    } finally {
+      this.deleting[base] = false;
+    }
+  }
+
+  /* =======================
+   * Helpers
+   * ======================= */
+
+  get isEmpty(): boolean {
+    return !this.loadingList && this.rows.length === 0;
+  }
+
+  get isGenerating(): boolean {
+    return this.loadingGenerate;
+  }
+
+  // Defaults: last 30 days
+  private defaultFromDateISO(): string {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return this.toISODate(d);
+    // yyyy-mm-dd
+  }
+
+  private defaultToDateISO(): string {
+    return this.toISODate(new Date());
+  }
+
+  private toISODate(d: Date): string {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  private asDate(value: string | Date, endOfDay = false): Date {
+    if (value instanceof Date) {
+      return value;
+    }
+    const [y, m, d] = value.split('-').map((n: string) => parseInt(n, 10));
+    const date = new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0);
+    if (endOfDay) {
+      date.setHours(23, 59, 59, 999);
+    }
+    return date;
+  }
+}
