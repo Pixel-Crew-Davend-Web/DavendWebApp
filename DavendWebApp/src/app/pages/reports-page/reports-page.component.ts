@@ -1,6 +1,6 @@
-import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, NgZone } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { ReportsService, ReportParams, ReportType, GroupBy } from '../../services/reports.service';
+import { SupabaseService, ReportParams, ReportType, GroupBy } from '../../services/supabase.service';
 
 type ReportRow = {
   base: string;
@@ -56,7 +56,9 @@ export class ReportsComponent implements OnInit {
 
   constructor(
     private fb: FormBuilder,
-    private reports: ReportsService
+    private reports: SupabaseService,
+    private cdr: ChangeDetectorRef,
+    private zone: NgZone
   ) {}
 
   ngOnInit(): void {
@@ -105,9 +107,14 @@ export class ReportsComponent implements OnInit {
     };
 
     this.loadingGenerate = true;
+    this.cdr.markForCheck();
+
     try {
       await this.reports.generateAndStoreReport(params);
-      this.hasGeneratedThisSession = true;
+      this.zone.run(() => {
+        this.hasGeneratedThisSession = true;
+        this.cdr.markForCheck();
+      })
       await this.refreshList();
       // Optional: toast success
       // this.toast.success('Report generated and saved to Reports bucket.');
@@ -116,21 +123,40 @@ export class ReportsComponent implements OnInit {
       // this.toast.error(err?.message || 'Failed to generate report.');
       alert(err?.message || 'Failed to generate report.');
     } finally {
-      this.loadingGenerate = false;
+      this.zone.run(() => {
+        this.loadingGenerate = false;
+        this.cdr.markForCheck();
+      })
     }
   }
 
   async refreshList() {
+
+    const withTimeout = <T>(p: Promise<T>, ms = 15000) =>
+      Promise.race([p, new Promise<T>((_, r) => setTimeout(() => r(new Error('Timed out')), ms))]);
+
     this.loadingList = true;
+    this.cdr.markForCheck();
+
     try {
-      this.rows = await this.reports.listReports(200);
+      const data = await withTimeout(this.reports.listReports(200));
+      this.zone.run(() => {
+        this.rows = data;
+        this.cdr.markForCheck();
+      })
     } catch (err: any) {
       console.error(err);
       // this.toast.error(err?.message || 'Failed to load reports.');
-      alert(err?.message || 'Failed to load reports.');
-      this.rows = [];
+      this.zone.run(() => {
+        this.rows = [];
+        alert(err?.message || 'Failed to load reports.');
+        this.cdr.markForCheck();
+      });
     } finally {
-      this.loadingList = false;
+      this.zone.run(() => {
+        this.loadingList = false;
+        this.cdr.markForCheck();
+      });
     }
   }
 
