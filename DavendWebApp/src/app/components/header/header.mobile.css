@@ -129,7 +129,7 @@
   transition: opacity 0.3s ease;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 950px) {
   .mobile-controls {
     transition: opacity 0.3s ease;
   }

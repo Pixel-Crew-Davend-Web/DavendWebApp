@@ -13,6 +13,7 @@
     </button>
   </div>
 
+
   <!--logo -->
   <div class="logo-section">
     <img src="assets/comp.png" alt="Company Logo" class="logo-img">
@@ -26,6 +27,12 @@
     <button [ngClass]="{'active-nav': page === 'products'}" routerLink="/products">Our Products</button>
     <button [ngClass]="{'active-nav': page === 'contact'}" routerLink="/contact">Contact</button>
   </nav>
+
+    <div class="desktop-controls">
+    <button class="checkout-btn" routerLink="/checkout">
+      <span class="material-icons">shopping_cart</span>
+    </button>
+  </div>
 </header>
 
 <!-- Black Header  -->
