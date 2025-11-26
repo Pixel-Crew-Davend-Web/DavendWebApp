@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
-import { Router } from '@angular/router';  // only if you want real navigation
+import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { AdminAuthService } from '../../services/admin-auth.service';
 import { PopupService } from '../../services/popup.service';
+import { SupabaseService, DbOrder } from '../../services/supabase.service';
 
 type OrderStatus = 'Pending' | 'Completed' | 'Cancelled';
 
@@ -11,7 +12,8 @@ interface Order {
   email: string;
   phone: string;
   items: string;
-  date: string;     // YYYY-MM-DD
+  method?: string;           // e.g. card, e-transfer, etc.
+  date: string;              // YYYY-MM-DD
   status: OrderStatus;
   notes?: string;
   history: string[];
@@ -24,11 +26,17 @@ interface Order {
   templateUrl: './admin-orders.component.html',
   styleUrls: ['./admin-orders.component.css']
 })
-export class AdminOrdersComponent {
-  constructor(private router: Router, private adminAuthService: AdminAuthService, private popup: PopupService) {}
+export class AdminOrdersComponent implements OnInit {
+  constructor(
+    private router: Router,
+    private adminAuthService: AdminAuthService,
+    private popup: PopupService,
+    private supabase: SupabaseService
+  ) {}
 
-  ngOnit() {
+  ngOnInit() {
     this.validateSession();
+    this.loadOrders();
   }
 
   // toast
@@ -36,24 +44,55 @@ export class AdminOrdersComponent {
   toastType: 'success' | 'error' | '' = '';
   toastTimer: any;
 
+  loading = false;
+  errorMsg = '';
+
   // filters
   searchTerm = '';
   filterStatus: 'All' | OrderStatus = 'All';
   sortNewestFirst = true;
 
-  // demo orders
-  orders: Order[] = [
-    { id: '1001', customerName: 'John Doe',   email: 'john@example.com',  phone: '416-555-0001', items: 'Die Springs x2',           date: '2025-09-12', status: 'Pending',   notes: 'rush order', history: [] },
-    { id: '1002', customerName: 'Jane Smith', email: 'jane@example.com',  phone: '416-555-0002', items: 'Ejector Pins x5',          date: '2025-09-10', status: 'Completed', history: [] },
-    { id: '1003', customerName: 'Mike Brown', email: 'mike@example.com',  phone: '416-555-0003', items: 'Punch Guides x1',          date: '2025-09-08', status: 'Cancelled', notes: 'customer cancel', history: [] },
-    { id: '1004', customerName: 'Amira Khan', email: 'amira@example.com', phone: '905-555-1004', items: 'Guide Pins and Bushings',  date: '2025-09-14', status: 'Pending',   history: [] },
-    { id: '1005', customerName: 'Leo Chen',   email: 'leo@example.com',   phone: '647-555-1005', items: 'Die Buttons x3',           date: '2025-09-13', status: 'Completed', history: [] },
-    { id: '1006', customerName: 'Sara Ali',   email: 'sara@example.com',  phone: '437-555-1006', items: 'Surface Grinding Service', date: '2025-09-11', status: 'Pending',   history: [] },
-    { id: '1007', customerName: 'Owen King',  email: 'owen@example.com',  phone: '416-555-1007', items: 'Centerless Grinding',      date: '2025-09-09', status: 'Completed', history: [] },
-    { id: '1008', customerName: 'Priya Patel',email:'priya@example.com',  phone: '905-555-1008', items: 'Punch + Die Set',          date: '2025-09-07', status: 'Cancelled', history: [] },
-    { id: '1009', customerName: 'Yusuf Idris',email:'yusuf@example.com',  phone: '289-555-1009', items: 'Custom Bushing',           date: '2025-09-06', status: 'Pending',   history: [] },
-    { id: '1010', customerName: 'Hannah Lee', email:'hannah@example.com', phone: '416-555-1010', items: 'Ejector Pins x12',         date: '2025-09-05', status: 'Completed', history: [] },
-  ];
+  // orders now come from Supabase
+  orders: Order[] = [];
+
+  private mapDbStatus(status: string | null | undefined): OrderStatus {
+    const s = (status || '').toLowerCase();
+
+    if (s.startsWith('pend')) return 'Pending';
+    if (s.startsWith('comp') || s === 'paid') return 'Completed';
+    if (s.startsWith('cancel')) return 'Cancelled';
+
+    return 'Pending';
+  }
+
+  async loadOrders() {
+    this.loading = true;
+    this.errorMsg = '';
+
+    try {
+      const data = await this.supabase.fetchAllOrders();
+
+      this.orders = (data || []).map((o: DbOrder) => ({
+        id: o.draft_id,
+        customerName: o.name || '',
+        email: o.email || '',
+        phone: o.phone || '',
+        // can enhance later to show actual items summary
+        items: 'See order items',
+        method: o.method || '—',
+        date: (o.created_at || '').slice(0, 10),
+        status: this.mapDbStatus(o.status),
+        notes: o.message || '',
+        history: [],
+      }));
+    } catch (err) {
+      console.error('Failed to load orders', err);
+      this.errorMsg = 'Could not load orders. Please try again.';
+      this.showToast('Failed to load orders', 'error');
+    } finally {
+      this.loading = false;
+    }
+  }
 
   async validateSession() {
     const email = localStorage.getItem('email');
@@ -88,7 +127,8 @@ export class AdminOrdersComponent {
       list = list.filter(o =>
         o.id.toLowerCase().includes(q) ||
         o.customerName.toLowerCase().includes(q) ||
-        o.items.toLowerCase().includes(q)
+        o.items.toLowerCase().includes(q) ||
+        (o.method || '').toLowerCase().includes(q)
       );
     }
 
@@ -153,11 +193,19 @@ export class AdminOrdersComponent {
   openDetails(o: Order) { this.selected = o; }
   closeDetails() { this.selected = null; }
 
-  // export CSV
+  // export CSV – include Method + Notes
   downloadCSV() {
-    const header = ['ID','Customer','Email','Phone','Items','Date','Status','Notes'];
+    const header = ['ID','Customer','Email','Phone','Items','Method','Date','Status','Notes'];
     const rows = this.filteredOrders.map(o => [
-      o.id, o.customerName, o.email, o.phone, o.items, o.date, o.status, o.notes ?? ''
+      o.id,
+      o.customerName,
+      o.email,
+      o.phone,
+      o.items,
+      o.method ?? '',
+      o.date,
+      o.status,
+      o.notes ?? ''
     ]);
     const csv = [header, ...rows].map(r =>
       r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')
@@ -174,12 +222,10 @@ export class AdminOrdersComponent {
 
   // navigation buttons
   goHome() {
-    // Replace with actual route in your app
     this.router.navigate(['/']);
   }
 
   logout() {
-    // Replace with real logout logic
     this.showToast('You have been logged out', 'success');
     this.router.navigate(['/login']);
   }

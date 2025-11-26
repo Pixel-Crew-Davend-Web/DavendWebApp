@@ -1,87 +1,85 @@
 <div class="orders-container">
-    <div class="orders-header">
-      <h2>Manage Customer Orders</h2>
-      <div class="controls">
-        <input type="text" [(ngModel)]="searchTerm" placeholder="Search by ID, customer, or item..." />
-        <select [(ngModel)]="filterStatus">
-          <option value="All">All Statuses</option>
-          <option value="Pending">Pending</option>
-          <option value="Completed">Completed</option>
-          <option value="Cancelled">Cancelled</option>
-        </select>
-        <button (click)="sortNewestFirst = !sortNewestFirst">
-          Sort: {{ sortNewestFirst ? 'Newest → Oldest' : 'Oldest → Newest' }}
-        </button>
-        <button class="export" (click)="downloadCSV()">Export CSV</button>
-        <button class="home" (click)="goHome()">Home</button>
-        <button class="logout" (click)="logout()">Logout</button>
-      </div>
+  <div class="orders-header">
+    <h2>Manage Customer Orders</h2>
+    <div class="controls">
+      <input type="text" [(ngModel)]="searchTerm" placeholder="Search by ID, customer, or item..." />
+      <select [(ngModel)]="filterStatus">
+        <option value="All">All Statuses</option>
+        <option value="Pending">Pending</option>
+        <option value="Completed">Completed</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+      <button (click)="sortNewestFirst = !sortNewestFirst">
+        Sort: {{ sortNewestFirst ? 'Newest → Oldest' : 'Oldest → Newest' }}
+      </button>
+      <button class="export" (click)="downloadCSV()">Export CSV</button>
+      <button class="home" (click)="goHome()">Home</button>
+      <button class="logout" (click)="logout()">Logout</button>
     </div>
-  
-    <table class="orders-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Customer</th>
-          <th>Items</th>
-          <th>Date</th>
-          <th>Status</th>
-          <th>Actions</th>
-          <th>History</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let o of filteredOrders">
-          <td>{{ o.id }}</td>
-          <td>
-            <div class="cust-name">{{ o.customerName }}</div>
-            <div class="cust-meta">{{ o.email }} • {{ o.phone }}</div>
-          </td>
-          <td>{{ o.items }}</td>
-          <td>{{ o.date }}</td>
-          <td>
-            <span [ngClass]="statusClass(o.status)">{{ o.status }}</span>
-          </td>
-          <td class="actions">
-            <button class="view" (click)="openDetails(o)">View</button>
-            <button class="edit" (click)="beginEdit(o)" *ngIf="!o._editing">Edit</button>
-  
-            <div *ngIf="o._editing" class="edit-controls">
-              <select [(ngModel)]="o._pendingStatus">
-                <option value="Pending">Pending</option>
-                <option value="Completed">Completed</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-              <button class="save" (click)="saveEdit(o)">Save</button>
-              <button class="cancel" (click)="cancelEdit(o)">Cancel</button>
-            </div>
-          </td>
-          <td class="history">
-            <div *ngIf="o.history.length; else noHist">
-              <div *ngFor="let h of o.history">• {{ h }}</div>
-            </div>
-            <ng-template #noHist>• No changes yet</ng-template>
-          </td>
-        </tr>
-      </tbody>
-    </table>
   </div>
-  
-  <!-- toast -->
-  <div *ngIf="toastMsg" class="toast" [ngClass]="toastType">{{ toastMsg }}</div>
-  
-  <!-- modal -->
-  <div class="modal" *ngIf="selected">
-    <div class="modal-content">
+
+  <table class="orders-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Customer</th>
+        <th>Items</th>
+        <th>Method</th>
+        <th>Date</th>
+        <th>Status</th>
+        <th>Actions</th>
+        <th>History</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let o of filteredOrders">
+        <td>{{ o.id }}</td>
+        <td>
+          <div class="cust-name">{{ o.customerName }}</div>
+          <div class="cust-meta">{{ o.email }} • {{ o.phone }}</div>
+        </td>
+        <td>{{ o.items }}</td>
+        <td>{{ o.method || '—' }}</td>
+        <td>{{ o.date }}</td>
+        <td>
+          <span [ngClass]="statusClass(o.status)">{{ o.status }}</span>
+        </td>
+        <td class="actions">
+          <button class="view" (click)="openDetails(o)">View</button>
+          <button class="edit" (click)="beginEdit(o)" *ngIf="!o._editing">Edit</button>
+
+          <div *ngIf="o._editing" class="edit-controls">
+            <select [(ngModel)]="o._pendingStatus">
+              <option value="Pending">Pending</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+            <button class="save" (click)="saveEdit(o)">Save</button>
+            <button class="cancel" (click)="cancelEdit(o)">Cancel</button>
+          </div>
+        </td>
+        <td class="history">
+          <div *ngIf="o.history.length; else noHist">
+            <div *ngFor="let h of o.history">• {{ h }}</div>
+          </div>
+          <ng-template #noHist>• No changes yet</ng-template>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Details Modal -->
+  <div class="modal-backdrop" *ngIf="selected">
+    <div class="modal">
       <div class="modal-header">
-        <h3>Order {{ selected.id }} Details</h3>
-        <button class="close" (click)="closeDetails()">✕</button>
+        <h3>Order Details – {{ selected?.id }}</h3>
       </div>
       <div class="modal-body">
         <p><strong>Customer:</strong> {{ selected.customerName }}</p>
         <p><strong>Email:</strong> {{ selected.email }}</p>
         <p><strong>Phone:</strong> {{ selected.phone }}</p>
         <p><strong>Items:</strong> {{ selected.items }}</p>
+        <p><strong>Method:</strong> {{ selected.method || '—' }}</p>
         <p><strong>Date:</strong> {{ selected.date }}</p>
         <p><strong>Status:</strong> {{ selected.status }}</p>
         <p><strong>Notes:</strong> {{ selected.notes || '—' }}</p>
@@ -91,4 +89,4 @@
       </div>
     </div>
   </div>
-  
+</div>
