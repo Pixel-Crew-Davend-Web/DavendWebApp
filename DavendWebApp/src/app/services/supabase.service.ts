@@ -24,6 +24,29 @@ export interface GeneratedReportInfo {
   signedPdfUrl?: string;
 }
 
+export interface DbOrder {
+  draft_id: string;
+  created_at: string;
+  amount?: number | null;
+  amount_total?: number | null;
+  currency?: string | null;
+  status?: string | null;
+  method?: string | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  message?: string | null;
+}
+
+export interface DbOrderItem {
+  order_id?: string | null;
+  product_id?: string | null;
+  name?: string | null;
+  price?: number | null;
+  qty?: number | null;
+  subtotal?: number | null;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -246,7 +269,6 @@ export class SupabaseService {
       throw error;
     }
   }
-
   private readonly allowedTypes = new Set<string>(['image/jpeg', 'application/pdf']);
 
 async uploadProductAsset(file: File): Promise<string> {
@@ -254,6 +276,7 @@ async uploadProductAsset(file: File): Promise<string> {
     throw new Error('Only JPG/JPEG or PDF files are allowed.');
   }
 
+  
   // Optional: validate extension too (defense-in-depth)
   const lower = (file.name || '').toLowerCase();
   if (!(lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.pdf'))) {
@@ -278,6 +301,61 @@ async uploadProductAsset(file: File): Promise<string> {
   // Return the storage path you use as imageURL in DB
   return data?.path || filename;
 }
+
+  // ------------------------
+  // Orders (simple helpers)
+  // ------------------------
+
+  async fetchAllOrders(): Promise<DbOrder[]> {
+    const { data, error } = await this.supabase
+      .from('Orders')
+      .select(
+        'draft_id, created_at, amount, amount_total, currency, status, method, name, email, phone, message'
+      )
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching orders from Supabase', error.message || error);
+      throw error;
+    }
+
+    return (data ?? []) as DbOrder[];
+  }
+
+  async fetchOrderWithItems(
+    draftId: string
+  ): Promise<{ order: DbOrder; items: DbOrderItem[] } | null> {
+    const id = draftId.trim();
+    if (!id) return null;
+
+    const { data: order, error: orderErr } = await this.supabase
+      .from('Orders')
+      .select(
+        'draft_id, created_at, amount, amount_total, currency, status, method, name, email, phone, message'
+      )
+      .eq('draft_id', id)
+      .single();
+
+    if (orderErr || !order) {
+      console.error('Error fetching order', orderErr?.message || orderErr || 'Order not found');
+      return null;
+    }
+
+    const { data: items, error: itemsErr } = await this.supabase
+      .from('OrderItems')
+      .select('*')
+      .eq('order_id', id);
+
+    if (itemsErr) {
+      console.error('Error fetching order items', itemsErr.message || itemsErr);
+    }
+
+    return {
+      order: order as DbOrder,
+      items: (items ?? []) as DbOrderItem[],
+    };
+  }
+
 
  async generateAndStoreReport(params: ReportParams): Promise<GeneratedReportInfo> {
     await this.ensureBucket();
