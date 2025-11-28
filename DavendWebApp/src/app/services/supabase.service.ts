@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import * as bcrypt from 'bcryptjs';
 
 export type ReportType = 'byProducts' | 'byOrders';
 export type OrdersGroupBy = 'day' | 'name' | 'email' | 'status' | 'method';
@@ -9,14 +10,14 @@ export type GroupBy = OrdersGroupBy | ProductsGroupBy;
 
 export interface ReportParams {
   type: ReportType;
-  from: Date;     // inclusive
-  to: Date;       // inclusive
+  from: Date; // inclusive
+  to: Date; // inclusive
   groupBy: GroupBy;
 }
 
 export interface GeneratedReportInfo {
   bucket: string;
-  baseName: string;           // without extension
+  baseName: string; // without extension
   csvPath: string;
   pdfPath: string;
   itemsCount: number;
@@ -50,7 +51,6 @@ export interface DbOrderItem {
 @Injectable({
   providedIn: 'root',
 })
-
 export class SupabaseService {
   private readonly BUCKET = 'Reports';
   private supabase: SupabaseClient;
@@ -65,8 +65,12 @@ export class SupabaseService {
           persistSession: true,
           autoRefreshToken: true,
           // 👇 override the lock to a no-op so it never uses Navigator LockManager
-          lock: async (_name: string, _timeout: number, fn: () => Promise<any>) => await fn()
-        }
+          lock: async (
+            _name: string,
+            _timeout: number,
+            fn: () => Promise<any>
+          ) => await fn(),
+        },
       }
     );
   }
@@ -96,7 +100,10 @@ export class SupabaseService {
     try {
       await this.createAdminToken(adminID);
     } catch (error) {
-      console.error('Error creating admin token:', (error as any)?.message ?? error);
+      console.error(
+        'Error creating admin token:',
+        (error as any)?.message ?? error
+      );
       return false;
     }
 
@@ -105,7 +112,6 @@ export class SupabaseService {
 
   // Admin Login
   async loginAdmin(email: string, password: string) {
-
     if (!email || !password || email.trim() === '' || password.trim() === '') {
       console.error('Login Failed: Email and password are required.');
       return false;
@@ -115,7 +121,6 @@ export class SupabaseService {
       .from('AdminUsers')
       .select('*')
       .eq('email', email)
-      .eq('password', password)
       .single();
 
     if (error || !data) {
@@ -123,10 +128,16 @@ export class SupabaseService {
       return false;
     }
 
+    const isMatch = await bcrypt.compare(password, data.password);
+    if (!isMatch) return false;
+
     try {
       await this.createAdminToken(data.id);
     } catch (error) {
-      console.error('Error creating admin token:', (error as any)?.message ?? error);
+      console.error(
+        'Error creating admin token:',
+        (error as any)?.message ?? error
+      );
       return false;
     }
 
@@ -161,17 +172,17 @@ export class SupabaseService {
     const { data, error } = await this.supabase
       .from('AdminLoginToken')
       .upsert(
-      [
-        {
-          AdminID: adminID,
-          ADMIN_TOKEN_KEY: token,
-          ADMIN_TOKEN_EXPIRY: timeStamp,
-        },
-      ],
-      { onConflict: 'AdminID' }
-    )
-    .select('"AdminID","ADMIN_TOKEN_KEY","ADMIN_TOKEN_EXPIRY"')
-    .single();
+        [
+          {
+            AdminID: adminID,
+            ADMIN_TOKEN_KEY: token,
+            ADMIN_TOKEN_EXPIRY: timeStamp,
+          },
+        ],
+        { onConflict: 'AdminID' }
+      )
+      .select('"AdminID","ADMIN_TOKEN_KEY","ADMIN_TOKEN_EXPIRY"')
+      .single();
 
     if (error) {
       console.error('Error creating admin token:', error.message);
@@ -183,7 +194,9 @@ export class SupabaseService {
 
   private generateToken(): string {
     // Browser-safe UUID token. If you want longer/opaque, concat two UUIDs.
-    return (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    return (crypto as any).randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`;
   }
 
   async getAdminToken(adminID: string, localToken?: string) {
@@ -192,7 +205,7 @@ export class SupabaseService {
       .select('"ADMIN_TOKEN_KEY","ADMIN_TOKEN_EXPIRY"')
       .eq('AdminID', adminID)
       .single();
-    
+
     if (localToken && data?.ADMIN_TOKEN_KEY !== localToken) {
       throw new Error('Token mismatch');
     }
@@ -218,7 +231,11 @@ export class SupabaseService {
 
   // Fetch one product
   async getProductByID(id: string) {
-    const { data, error } = await this.supabase.from('Products').select('*').eq('id', id).single();
+    const { data, error } = await this.supabase
+      .from('Products')
+      .select('*')
+      .eq('id', id)
+      .single();
     if (error) {
       console.error('Error finding product:', error.message);
       throw error;
@@ -227,11 +244,17 @@ export class SupabaseService {
   }
 
   // Add a new product
-  async addProduct(name: string, description: string, price: number, qty: number, imageURL: string) {
+  async addProduct(
+    name: string,
+    description: string,
+    price: number,
+    qty: number,
+    imageURL: string
+  ) {
     const { data, error } = await this.supabase
       .from('Products')
       .insert([{ name, description, price, qty, imageURL }]);
-    
+
     if (error) {
       console.error('Error adding product:', error.message);
       throw error;
@@ -243,17 +266,24 @@ export class SupabaseService {
     const { data, error } = await this.supabase.storage
       .from('product-images') // 👈 bucket name
       .upload(filePath, file);
-  
+
     return { data, error };
-  }  
+  }
 
   // Update an existing product
-  async updateProduct(id: string, name: string, description: string, price: number, qty: number, imageURL: string) {
+  async updateProduct(
+    id: string,
+    name: string,
+    description: string,
+    price: number,
+    qty: number,
+    imageURL: string
+  ) {
     const { data, error } = await this.supabase
       .from('Products')
       .update({ name, description, qty, imageURL, price })
       .eq('id', id);
-    
+
     if (error) {
       console.error('Error updating product:', error.message);
       throw error;
@@ -263,44 +293,54 @@ export class SupabaseService {
 
   // Delete a product
   async deleteProduct(id: string) {
-    const { error } = await this.supabase.from('Products').delete().eq('id', id);
+    const { error } = await this.supabase
+      .from('Products')
+      .delete()
+      .eq('id', id);
     if (error) {
       console.error('Error deleting product:', error.message);
       throw error;
     }
   }
-  private readonly allowedTypes = new Set<string>(['image/jpeg', 'application/pdf']);
+  private readonly allowedTypes = new Set<string>([
+    'image/jpeg',
+    'application/pdf',
+  ]);
 
-async uploadProductAsset(file: File): Promise<string> {
-  if (!this.allowedTypes.has(file.type)) {
-    throw new Error('Only JPG/JPEG or PDF files are allowed.');
+  async uploadProductAsset(file: File): Promise<string> {
+    if (!this.allowedTypes.has(file.type)) {
+      throw new Error('Only JPG/JPEG or PDF files are allowed.');
+    }
+
+    // Optional: validate extension too (defense-in-depth)
+    const lower = (file.name || '').toLowerCase();
+    if (
+      !(
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.pdf')
+      )
+    ) {
+      throw new Error('Only .jpg, .jpeg, or .pdf files are allowed.');
+    }
+
+    const ext = lower.substring(lower.lastIndexOf('.'));
+    const filename = `${crypto.randomUUID()}${ext}`; // ensure unique
+
+    // Upload to your Supabase bucket, e.g., 'product-assets'
+    const { data, error } = await this.supabase.storage
+      .from('product-images')
+      .upload(filename, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type,
+      });
+
+    if (error) throw error;
+
+    // Return the storage path you use as imageURL in DB
+    return data?.path || filename;
   }
-
-  
-  // Optional: validate extension too (defense-in-depth)
-  const lower = (file.name || '').toLowerCase();
-  if (!(lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.pdf'))) {
-    throw new Error('Only .jpg, .jpeg, or .pdf files are allowed.');
-  }
-
-  const ext = lower.substring(lower.lastIndexOf('.'));
-  const filename = `${crypto.randomUUID()}${ext}`; // ensure unique
-
-  // Upload to your Supabase bucket, e.g., 'product-assets'
-  const { data, error } = await this.supabase
-    .storage
-    .from('product-images')
-    .upload(filename, file, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: file.type,
-    });
-
-  if (error) throw error;
-
-  // Return the storage path you use as imageURL in DB
-  return data?.path || filename;
-}
 
   // ------------------------
   // Orders (simple helpers)
@@ -315,7 +355,10 @@ async uploadProductAsset(file: File): Promise<string> {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching orders from Supabase', error.message || error);
+      console.error(
+        'Error fetching orders from Supabase',
+        error.message || error
+      );
       throw error;
     }
 
@@ -337,7 +380,10 @@ async uploadProductAsset(file: File): Promise<string> {
       .single();
 
     if (orderErr || !order) {
-      console.error('Error fetching order', orderErr?.message || orderErr || 'Order not found');
+      console.error(
+        'Error fetching order',
+        orderErr?.message || orderErr || 'Order not found'
+      );
       return null;
     }
 
@@ -356,8 +402,9 @@ async uploadProductAsset(file: File): Promise<string> {
     };
   }
 
-
- async generateAndStoreReport(params: ReportParams): Promise<GeneratedReportInfo> {
+  async generateAndStoreReport(
+    params: ReportParams
+  ): Promise<GeneratedReportInfo> {
     await this.ensureBucket();
 
     const { rows, headers } = await this.fetchAndAggregate(params);
@@ -367,8 +414,7 @@ async uploadProductAsset(file: File): Promise<string> {
     const stamp = this.ts();
     const fromStr = this.safeDate(params.from);
     const toStr = this.safeDate(params.to);
-    const baseName =
-      `report_${params.type}_${params.groupBy}_${fromStr}_to_${toStr}_${stamp}`;
+    const baseName = `report_${params.type}_${params.groupBy}_${fromStr}_to_${toStr}_${stamp}`;
 
     const csvBlob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const csvPath = `${baseName}.csv`;
@@ -379,7 +425,11 @@ async uploadProductAsset(file: File): Promise<string> {
     // Generate & upload PDF (best-effort: if pdf lib missing, we still succeed with CSV)
     const pdfPath = `${baseName}.pdf`;
     try {
-      const pdfBlob = await this.buildPdfBlob(`${params.type} (grouped by ${params.groupBy})`, headers, rows);
+      const pdfBlob = await this.buildPdfBlob(
+        `${params.type} (grouped by ${params.groupBy})`,
+        headers,
+        rows
+      );
       await this.uploadFile(this.BUCKET, pdfPath, pdfBlob, 'application/pdf');
     } catch (err) {
       console.warn('PDF generation failed; continuing with CSV only:', err);
@@ -387,7 +437,9 @@ async uploadProductAsset(file: File): Promise<string> {
 
     // Signed URLs (1 hour)
     const signedCsvUrl = await this.signUrl(csvPath, 60 * 60);
-    const signedPdfUrl = await this.signUrl(pdfPath, 60 * 60).catch(() => undefined);
+    const signedPdfUrl = await this.signUrl(pdfPath, 60 * 60).catch(
+      () => undefined
+    );
 
     return {
       bucket: this.BUCKET,
@@ -402,16 +454,21 @@ async uploadProductAsset(file: File): Promise<string> {
 
   async listReports(limit = 100) {
     // Note: Storage list cannot sort by created time; we sort by name (our names embed a timestamp).
-    const { data, error } = await this.supabase.storage.from(this.BUCKET).list('', {
-    limit,
-    offset: 0,
-    sortBy: { column: 'name', order: 'desc' }
-    });
+    const { data, error } = await this.supabase.storage
+      .from(this.BUCKET)
+      .list('', {
+        limit,
+        offset: 0,
+        sortBy: { column: 'name', order: 'desc' },
+      });
     if (error) throw error;
 
     const files = (data ?? []).filter((f: any) => f && !f.name.endsWith('/'));
 
-    const byBase = new Map<string, { base: string; csv: any | null; pdf: any | null }>();
+    const byBase = new Map<
+      string,
+      { base: string; csv: any | null; pdf: any | null }
+    >();
 
     for (const f of files) {
       const base = f.name.replace(/\.(csv|pdf)$/i, '');
@@ -421,12 +478,16 @@ async uploadProductAsset(file: File): Promise<string> {
       byBase.set(base, entry);
     }
 
-    return Array.from(byBase.values()).sort((a, b) => b.base.localeCompare(a.base));
+    return Array.from(byBase.values()).sort((a, b) =>
+      b.base.localeCompare(a.base)
+    );
   }
 
   async deleteReportByBaseName(baseName: string) {
     const paths = [`${baseName}.csv`, `${baseName}.pdf`];
-    const { error } = await this.supabase.storage.from(this.BUCKET).remove(paths);
+    const { error } = await this.supabase.storage
+      .from(this.BUCKET)
+      .remove(paths);
     if (error) throw error;
     return true;
   }
@@ -439,11 +500,15 @@ async uploadProductAsset(file: File): Promise<string> {
    * Data fetching & aggregation
    * -------------------------------- */
 
-  private async fetchAndAggregate(params: ReportParams): Promise<{ headers: string[]; rows: any[] }> {
+  private async fetchAndAggregate(
+    params: ReportParams
+  ): Promise<{ headers: string[]; rows: any[] }> {
     if (params.type === 'byOrders') {
       const { data, error } = await this.supabase
         .from('Orders')
-        .select('draft_id, created_at, amount, amount_total, currency, status, method, name, email')
+        .select(
+          'draft_id, created_at, amount, amount_total, currency, status, method, name, email'
+        )
         .gte('created_at', params.from.toISOString())
         .lte('created_at', params.to.toISOString());
 
@@ -459,14 +524,20 @@ async uploadProductAsset(file: File): Promise<string> {
         status: o.status ?? '',
         method: o.method ?? '',
         currency: String(o.currency || 'cad').toUpperCase(),
-        amount: this.pickAmount(o)
+        amount: this.pickAmount(o),
       }));
 
       // Group by chosen dimension
       const key = params.groupBy as OrdersGroupBy;
-      const groups = new Map<string, { count: number; total: number; currency: string }>();
+      const groups = new Map<
+        string,
+        { count: number; total: number; currency: string }
+      >();
       for (const r of norm) {
-        const k = key === 'day' ? (r.day ?? 'unknown') : (String((r as any)[key] ?? 'unknown') || 'unknown');
+        const k =
+          key === 'day'
+            ? r.day ?? 'unknown'
+            : String((r as any)[key] ?? 'unknown') || 'unknown';
         const g = groups.get(k) ?? { count: 0, total: 0, currency: r.currency };
         g.count += 1;
         g.total += Number(r.amount || 0);
@@ -478,12 +549,12 @@ async uploadProductAsset(file: File): Promise<string> {
         group: k,
         orders: g.count,
         total: g.total.toFixed(2),
-        currency: g.currency
+        currency: g.currency,
       }));
 
       return {
         headers: ['Group', 'Orders', 'Total', 'Currency'],
-        rows
+        rows,
       };
     }
 
@@ -499,7 +570,7 @@ async uploadProductAsset(file: File): Promise<string> {
       name: p.name ?? '',
       qty: Number(p.qty ?? 0),
       price: this.pickPrice(p),
-      active: p.active === false ? 'false' : 'true'
+      active: p.active === false ? 'false' : 'true',
     }));
 
     const key = params.groupBy as ProductsGroupBy;
@@ -507,17 +578,20 @@ async uploadProductAsset(file: File): Promise<string> {
       // one row per product
       return {
         headers: ['Product', 'Qty', 'Unit Price', 'Inventory Value'],
-        rows: items.map((i: { name: any; qty: number; price: number; }) => ({
+        rows: items.map((i: { name: any; qty: number; price: number }) => ({
           product: i.name,
           qty: i.qty,
           unit_price: i.price.toFixed(2),
-          inventory_value: (i.qty * i.price).toFixed(2)
-        }))
+          inventory_value: (i.qty * i.price).toFixed(2),
+        })),
       };
     }
 
     // group by active
-    const groups = new Map<string, { count: number; totalQty: number; value: number }>();
+    const groups = new Map<
+      string,
+      { count: number; totalQty: number; value: number }
+    >();
     for (const i of items) {
       const k = i.active;
       const g = groups.get(k) ?? { count: 0, totalQty: 0, value: 0 };
@@ -531,12 +605,12 @@ async uploadProductAsset(file: File): Promise<string> {
       group: k,
       products: g.count,
       total_qty: g.totalQty,
-      inventory_value: g.value.toFixed(2)
+      inventory_value: g.value.toFixed(2),
     }));
 
     return {
       headers: ['Group', 'Products', 'Total Qty', 'Inventory Value'],
-      rows
+      rows,
     };
   }
 
@@ -546,14 +620,17 @@ async uploadProductAsset(file: File): Promise<string> {
 
   private async ensureBucket() {
     // Try HEAD listing; if fails, try to create bucket (will succeed only if policy allows)
-    const probe = await this.supabase.storage.from(this.BUCKET).list('', { limit: 1 }).catch(() => null);
+    const probe = await this.supabase.storage
+      .from(this.BUCKET)
+      .list('', { limit: 1 })
+      .catch(() => null);
     if (probe) return;
 
     // Attempt to create (will no-op/throw if anon client has no permission).
     try {
       await this.supabase.storage.createBucket(this.BUCKET, {
         public: false,
-        fileSizeLimit: '50MB'
+        fileSizeLimit: '50MB',
       });
     } catch (e: any) {
       // If 409 or permission error, just proceed—bucket may already exist or must be pre-created on server
@@ -561,16 +638,25 @@ async uploadProductAsset(file: File): Promise<string> {
     }
   }
 
-  private async uploadFile(bucket: string, path: string, blob: Blob, contentType: string) {
-    const { error } = await this.supabase.storage.from(bucket).upload(path, blob, {
-      upsert: true,
-      contentType
-    });
+  private async uploadFile(
+    bucket: string,
+    path: string,
+    blob: Blob,
+    contentType: string
+  ) {
+    const { error } = await this.supabase.storage
+      .from(bucket)
+      .upload(path, blob, {
+        upsert: true,
+        contentType,
+      });
     if (error) throw error;
   }
 
   private async signUrl(path: string, expiresInSeconds: number) {
-    const { data, error } = await this.supabase.storage.from(this.BUCKET).createSignedUrl(path, expiresInSeconds);
+    const { data, error } = await this.supabase.storage
+      .from(this.BUCKET)
+      .createSignedUrl(path, expiresInSeconds);
     if (error) throw error;
     return data?.signedUrl as string;
   }
@@ -585,23 +671,28 @@ async uploadProductAsset(file: File): Promise<string> {
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const head = headers.map(escape).join(',');
-    const body = rows.map((r) => headers.map((h) => escape((r as any)[this.headerKey(h)])).join(',')).join('\n');
+    const body = rows
+      .map((r) =>
+        headers.map((h) => escape((r as any)[this.headerKey(h)])).join(',')
+      )
+      .join('\n');
     return `${head}\n${body}\n`;
   }
 
   // Map human header → object key (kept super simple; adjust as needed)
   private headerKey(h: string) {
-    return h
-      .toLowerCase()
-      .replace(/ /g, '_')
-      .replace(/[^\w]/g, '');
+    return h.toLowerCase().replace(/ /g, '_').replace(/[^\w]/g, '');
   }
 
-  private async buildPdfBlob(title: string, headers: string[], rows: any[]): Promise<Blob> {
+  private async buildPdfBlob(
+    title: string,
+    headers: string[],
+    rows: any[]
+  ): Promise<Blob> {
     // Lazy import so SSR/tests don’t choke
     const [{ default: jsPDF }, autoTableModule] = await Promise.all([
       import('jspdf'),
-      import('jspdf-autotable')
+      import('jspdf-autotable'),
     ]);
 
     const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
@@ -612,11 +703,13 @@ async uploadProductAsset(file: File): Promise<string> {
     doc.text(title, 40, 40);
 
     // Table
-    const body = rows.map((r) => headers.map((h) => (r as any)[this.headerKey(h)] ?? ''));
+    const body = rows.map((r) =>
+      headers.map((h) => (r as any)[this.headerKey(h)] ?? '')
+    );
     (autoTableModule as any).default(doc, {
       startY: 60,
       head: [headers],
-      body
+      body,
     });
 
     const out = doc.output('blob') as Blob;
@@ -636,7 +729,8 @@ async uploadProductAsset(file: File): Promise<string> {
   }
 
   private pickPrice(p: any): number {
-    if (typeof p.price_cents === 'number' && Number.isFinite(p.price_cents)) return p.price_cents / 100;
+    if (typeof p.price_cents === 'number' && Number.isFinite(p.price_cents))
+      return p.price_cents / 100;
     const a = Number(p.price);
     return Number.isFinite(a) ? a : 0;
   }
@@ -645,14 +739,50 @@ async uploadProductAsset(file: File): Promise<string> {
     // 2025-11-03T16-11-00
     const d = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+      d.getDate()
+    )}T${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
   }
 
   private safeDate(d: Date) {
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
+
+  /* --------------------------------
+   * Services
+   * -------------------------------- */
+
+  async getAllServices() {
+    return this.supabase
+      .from('services')
+      .select('*')
+      .order('created_at', { ascending: true });
+  }
+
+  async addService(payload: any) {
+    return this.supabase.from('services').insert(payload).select();
+  }
+
+  async updateService(id: string, payload: any) {
+    return this.supabase.from('services').update(payload).eq('id', id);
+  }
+
+  async deleteService(id: string) {
+    return this.supabase.from('services').delete().eq('id', id);
+  }
+
+  async uploadServiceAsset(file: File): Promise<string> {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${crypto.randomUUID()}.${fileExt}`;
+  const filePath = `${fileName}`;
+
+  const { error } = await this.supabase.storage
+    .from('service-images')
+    .upload(filePath, file);
+
+  if (error) throw error;
+  return filePath;
 }
 
-
-
+}

@@ -10,7 +10,6 @@ import { LandingPageComponent } from './pages/landing-page/landing-page.componen
 import { HeaderComponent } from './components/header/header.component';
 import { FooterComponent } from './components/footer/footer.component';
 import { ProductsPageComponent } from './pages/products-page/products-page.component';
-import { AboutPageComponent } from './pages/about-page/about-page.component';
 import { ServicesPageComponent } from './pages/services-page/services-page.component';
 import { ContactPageComponent } from './pages/contact-page/contact-page.component';
 import { CheckoutPageComponent } from './pages/checkout-page/checkout-page.component';
@@ -22,6 +21,7 @@ import { PopupNotificationComponent } from './components/popup-notification/popu
 import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
 import { TrackOrderComponent } from './pages/track-order/track-order.component'; 
 import { ReportsComponent } from './pages/reports-page/reports-page.component';
+import { ManageServicesComponent } from './pages/manage-services/manage-services.component';
 
 
 @NgModule({
@@ -33,7 +33,6 @@ import { ReportsComponent } from './pages/reports-page/reports-page.component';
     HeaderComponent,
     FooterComponent,
     ProductsPageComponent,
-    AboutPageComponent,
     ServicesPageComponent,
     ContactPageComponent,
     CheckoutPageComponent,
@@ -41,7 +40,8 @@ import { ReportsComponent } from './pages/reports-page/reports-page.component';
     SuccessComponent,
     AdminOrdersComponent,
     TrackOrderComponent,
-    ReportsComponent
+    ReportsComponent,
+    ManageServicesComponent
   ],
   imports: [
     BrowserModule,

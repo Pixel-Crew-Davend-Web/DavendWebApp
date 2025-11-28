@@ -1,0 +1,208 @@
+<div class="inv-shell">
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo-dot"></span>
+      <h1>Manage Services</h1>
+    </div>
+
+    <div class="nav-buttons">
+      <button routerLink="/" class="btn btn-secondary">🏠 Home</button>
+      <button routerLink="/login" class="btn btn-secondaryT">🔐 Admin Dashboard</button>
+      <button (click)="logout()" class="btn btn-danger">🚪 Logout</button>
+    </div>
+  </header>
+
+  <!-- Page Content -->
+  <main class="content">
+
+    <!-- ADD SERVICE CARD -->
+    <section class="card add-service">
+      <div class="card-head">
+        <h3>Add Service</h3>
+        <p class="muted">Create a new service and optionally upload an image or PDF.</p>
+      </div>
+
+      <!-- FORM GRID -->
+      <div class="form-grid">
+        <label class="field">
+          <span>Title</span>
+          <input type="text"
+            [(ngModel)]="newService.title"
+            (ngModelChange)="validateAdd()"
+            [class.invalid]="!!addErrors.title"
+            placeholder="e.g. Centerless Grinding"
+          />
+          <small class="err" *ngIf="addErrors.title">{{ addErrors.title }}</small>
+        </label>
+
+        <label class="field field-span2">
+          <span>Description</span>
+          <input type="text"
+            [(ngModel)]="newService.description"
+            (ngModelChange)="validateAdd()"
+            [class.invalid]="!!addErrors.description"
+            placeholder="Short description of the service"
+          />
+          <small class="err" *ngIf="addErrors.description">{{ addErrors.description }}</small>
+        </label>
+
+        <label class="field">
+          <span>Featured?</span>
+          <input type="checkbox" [(ngModel)]="newService.is_featured" />
+        </label>
+
+        <label class="field field-span2">
+          <span>Image / PDF <em class="muted">(optional)</em></span>
+          <input
+            type="file"
+            class="file-input"
+            accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
+            (change)="handleAddImageUpload($event)"
+          />
+          <p class="hint">Accepted: JPG/JPEG or PDF</p>
+        </label>
+
+      </div>
+
+      <!-- PREVIEW -->
+      <div *ngIf="addPreviewUrl" class="preview-wrap">
+        <ng-container *ngIf="!addPreviewIsPdf">
+          <img [src]="addPreviewUrl" class="preview-img" />
+        </ng-container>
+
+        <ng-container *ngIf="addPreviewIsPdf">
+          <embed [src]="addPreviewTrustedUrl" class="pdf-embed" />
+        </ng-container>
+
+        <div class="preview-actions">
+          <button class="btn btn-secondary" (click)="triggerAddReupload()">Choose different file</button>
+          <button class="btn btn-ghost" (click)="cancelAddImage()">Cancel image</button>
+        </div>
+      </div>
+
+      <!-- WARNING -->
+      <div *ngIf="showAddImageWarning" class="callout warn">
+        <div>No image selected. Create service without an image?</div>
+        <div class="callout-actions">
+          <button class="btn btn-primary" (click)="proceedWithoutAddImage()">Yes</button>
+          <button class="btn btn-ghost" (click)="showAddImageWarning=false">Cancel</button>
+        </div>
+      </div>
+
+      <input
+        #addReuploadInput
+        type="file"
+        accept=".jpg,.jpeg,.pdf"
+        style="display:none"
+        (change)="handleAddImageUpload($event)"
+      />
+
+      <div class="actions">
+        <button class="btn btn-primary" (click)="addService()" [disabled]="!addFormValid">
+          Add Service
+        </button>
+      </div>
+    </section>
+
+    <!-- SERVICES TABLE -->
+    <section class="card">
+      <div class="card-head">
+        <h3>Services</h3>
+        <p class="muted" *ngIf="!services.length">No services available.</p>
+      </div>
+
+      <div class="table-wrap" *ngIf="services.length">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="sticky">Title</th>
+              <th class="sticky">Description</th>
+              <th class="sticky">Featured</th>
+              <th class="sticky">Image</th>
+              <th class="sticky">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of services">
+              <td class="t-left">{{ s.title }}</td>
+              <td class="t-left ellipsize">{{ s.description }}</td>
+              <td>{{ s.is_featured ? 'Yes' : 'No' }}</td>
+              <td>
+                <img
+                  [src]="getServiceImageUrl(s.image_url)"
+                  class="product-img"
+                />
+              </td>
+              <td>
+                <div class="row-actions">
+                  <button class="btn btn-warning" (click)="editService(s)">Edit</button>
+                  <button class="btn btn-danger" (click)="deleteService(s.id)">Delete</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- EDIT SERVICE -->
+    <section class="card" *ngIf="editingService">
+      <div class="card-head">
+        <h3>Edit Service</h3>
+        <p class="muted">Update service information or upload a new asset.</p>
+      </div>
+
+      <div class="form-grid">
+        <label class="field">
+          <span>Title</span>
+          <input type="text" [(ngModel)]="editingService.title" (ngModelChange)="validateEdit()"
+            [class.invalid]="!!editErrors.title">
+          <small class="err" *ngIf="editErrors.title">{{ editErrors.title }}</small>
+        </label>
+
+        <label class="field field-span2">
+          <span>Description</span>
+          <input type="text" [(ngModel)]="editingService.description" (ngModelChange)="validateEdit()"
+            [class.invalid]="!!editErrors.description">
+          <small class="err" *ngIf="editErrors.description">{{ editErrors.description }}</small>
+        </label>
+
+        <label class="field">
+          <span>Featured?</span>
+          <input type="checkbox" [(ngModel)]="editingService.is_featured" />
+        </label>
+
+        <label class="field field-span2">
+          <span>New Image/PDF (optional)</span>
+          <input class="file-input" type="file"
+            accept=".jpg,.jpeg,.pdf"
+            (change)="handleEditImageUpload($event)">
+        </label>
+      </div>
+
+      <div *ngIf="editPreviewUrl" class="preview-wrap">
+        <img *ngIf="!editPreviewIsPdf" [src]="editPreviewUrl" class="preview-img" />
+        <embed *ngIf="editPreviewIsPdf" [src]="editPreviewTrustedUrl" class="pdf-embed" />
+
+        <div class="preview-actions">
+          <button class="btn btn-secondary" (click)="triggerEditReupload()">Choose another file</button>
+          <button class="btn btn-ghost" (click)="cancelEditImage()">Cancel image</button>
+        </div>
+      </div>
+
+      <input
+        #editReuploadInput
+        type="file"
+        accept=".jpg,.jpeg,.pdf"
+        style="display:none"
+        (change)="handleEditImageUpload($event)"
+      />
+
+      <div class="actions">
+        <button class="btn btn-primary" (click)="saveEdit()" [disabled]="!editFormValid">Save</button>
+        <button class="btn btn-ghost" (click)="cancelEdit()">Cancel</button>
+      </div>
+    </section>
+  </main>
+</div>

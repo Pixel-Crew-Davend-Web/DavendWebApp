@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { AboutPageComponent } from './about-page.component';
+import { ManageServicesComponent } from './manage-services.component';
 
-describe('AboutPageComponent', () => {
-  let component: AboutPageComponent;
-  let fixture: ComponentFixture<AboutPageComponent>;
+describe('ManageServicesComponent', () => {
+  let component: ManageServicesComponent;
+  let fixture: ComponentFixture<ManageServicesComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [AboutPageComponent]
+      declarations: [ManageServicesComponent]
     })
     .compileComponents();
     
-    fixture = TestBed.createComponent(AboutPageComponent);
+    fixture = TestBed.createComponent(ManageServicesComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
