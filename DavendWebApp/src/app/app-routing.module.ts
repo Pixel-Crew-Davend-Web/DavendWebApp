@@ -5,7 +5,6 @@ import { AuthGuard } from './guards/auth.guard';
 import { AdminLoginComponent } from './components/admin-login/admin-login.component';
 import { LandingPageComponent } from './pages/landing-page/landing-page.component';
 import { ProductsPageComponent } from './pages/products-page/products-page.component';
-import { AboutPageComponent } from './pages/about-page/about-page.component';
 import { ServicesPageComponent } from './pages/services-page/services-page.component';
 import { ContactPageComponent } from './pages/contact-page/contact-page.component';
 import { CheckoutPageComponent } from './pages/checkout-page/checkout-page.component';
@@ -14,10 +13,10 @@ import { SuccessComponent } from './pages/payment-success/payment-success.compon
 import { AdminOrdersComponent } from './pages/admin-orders/admin-orders.component';
 import { TrackOrderComponent } from './pages/track-order/track-order.component';
 import { ReportsComponent } from './pages/reports-page/reports-page.component';
+import { ManageServicesComponent } from './pages/manage-services/manage-services.component';
 
 const routes: Routes = [
   { path: '', component: LandingPageComponent },
-  { path: 'about', component: AboutPageComponent },
   { path: 'products', component: ProductsPageComponent },
   { path: 'services', component: ServicesPageComponent },
   { path: 'service-request', component: ServiceRequestPageComponent },
@@ -29,7 +28,8 @@ const routes: Routes = [
   { path: 'checkout', component: CheckoutPageComponent },
   { path: 'success/:id', component: SuccessComponent },
   { path: 'track-order', component: TrackOrderComponent }, 
-  { path: "reports", component: ReportsComponent },
+  { path: "reports", component: ReportsComponent, canActivate: [AuthGuard] },
+  { path: "manage-services", component: ManageServicesComponent, canActivate: [AuthGuard]},
   { path: '**', redirectTo: '' } 
 ];
 

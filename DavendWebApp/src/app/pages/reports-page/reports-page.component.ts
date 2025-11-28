@@ -1,6 +1,9 @@
 import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, NgZone } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { SupabaseService, ReportParams, ReportType, GroupBy } from '../../services/supabase.service';
+import { AdminAuthService } from '../../services/admin-auth.service';
+import { PopupService } from '../../services/popup.service';
+import { Router } from '@angular/router';
 
 type ReportRow = {
   base: string;
@@ -47,7 +50,6 @@ export class ReportsComponent implements OnInit {
     { label: 'Active (true/false)', value: 'active' }
   ];
 
-  // derived: current options shown in the Group By select
   get groupByOptions() {
     return this.form?.value?.type === 'byProducts'
       ? this.productsGroupByOptions
@@ -58,10 +60,14 @@ export class ReportsComponent implements OnInit {
     private fb: FormBuilder,
     private reports: SupabaseService,
     private cdr: ChangeDetectorRef,
-    private zone: NgZone
+    private zone: NgZone,
+    private popup: PopupService,
+    private adminAuthService: AdminAuthService, 
+    private router: Router, 
   ) {}
 
-  ngOnInit(): void {
+  async ngOnInit() {
+    this.isAdminTokenValid();
     this.form = this.fb.group({
       type: ['byOrders' as ReportType, Validators.required],
       from: [this.defaultFromDateISO(), Validators.required],
@@ -69,7 +75,8 @@ export class ReportsComponent implements OnInit {
       groupBy: ['day' as GroupBy, Validators.required]
     });
 
-    // If type changes, ensure a valid groupBy is selected for that type
+    // If type changes, this makes sure a valid groupBy is selected for that type
+    // Create Helpers
     this.form.get('type')!.valueChanges.subscribe((val: ReportType) => {
       const gbCtrl = this.form.get('groupBy')!;
       if (val === 'byProducts') {
@@ -86,9 +93,6 @@ export class ReportsComponent implements OnInit {
     this.refreshList();
   }
 
-  /* =======================
-   * Actions
-   * ======================= */
 
   async onGenerate() {
     if (this.form.invalid) {
@@ -98,11 +102,11 @@ export class ReportsComponent implements OnInit {
 
     const { type, from, to, groupBy } = this.form.value;
 
-    // Convert string dates (yyyy-mm-dd) to Date objects
+    // Convert string dates (yyyy-mm-dd) to Date objects for supabase query
     const params: ReportParams = {
       type,
       from: this.asDate(from),
-      to: this.asDate(to, true), // include the end day to 23:59:59
+      to: this.asDate(to, true), 
       groupBy
     };
 
@@ -116,12 +120,11 @@ export class ReportsComponent implements OnInit {
         this.cdr.markForCheck();
       })
       await this.refreshList();
-      // Optional: toast success
-      // this.toast.success('Report generated and saved to Reports bucket.');
+      // Include pop-up here for success
     } catch (err: any) {
       console.error(err);
-      // this.toast.error(err?.message || 'Failed to generate report.');
-      alert(err?.message || 'Failed to generate report.');
+      // Include pop-up here for error
+      this.popup.error(err?.message || 'Failed to generate report.');
     } finally {
       this.zone.run(() => {
         this.loadingGenerate = false;
@@ -132,6 +135,7 @@ export class ReportsComponent implements OnInit {
 
   async refreshList() {
 
+    // Timeout in case database is unreachable/accidental loops
     const withTimeout = <T>(p: Promise<T>, ms = 15000) =>
       Promise.race([p, new Promise<T>((_, r) => setTimeout(() => r(new Error('Timed out')), ms))]);
 
@@ -146,10 +150,10 @@ export class ReportsComponent implements OnInit {
       })
     } catch (err: any) {
       console.error(err);
-      // this.toast.error(err?.message || 'Failed to load reports.');
+      // Include pop-up here for error
       this.zone.run(() => {
         this.rows = [];
-        alert(err?.message || 'Failed to load reports.');
+        this.popup.error(err?.message || 'Failed to load reports.');
         this.cdr.markForCheck();
       });
     } finally {
@@ -164,13 +168,13 @@ export class ReportsComponent implements OnInit {
     const file = which === 'csv' ? row.csv : row.pdf;
     if (!file) return;
 
-    // Ensure a fresh signed URL (short TTL for safety)
+    // Get a fresh signed URL
     try {
       const url = await this.reports.getSignedUrl(file.name, 60 * 15);
       window.open(url, '_blank');
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || 'Could not open file.');
+      this.popup.error(err?.message || 'Could not open file.');
     }
   }
 
@@ -189,23 +193,24 @@ export class ReportsComponent implements OnInit {
       a.remove();
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || 'Could not download file.');
+      this.popup.error(err?.message || 'Could not download file.');
     }
   }
 
   async onDelete(row: ReportRow) {
     const base = row.base;
     const confirmMsg = `Delete report "${base}" (CSV and PDF)?`;
-    if (!confirm(confirmMsg)) return;
+    if (!confirm(confirmMsg)) return; // Include pop-up here for confirmation
 
     this.deleting[base] = true;
     try {
       await this.reports.deleteReportByBaseName(base);
       await this.refreshList();
-      // this.toast.success('Report deleted.');
+      // Include pop-up here for success
     } catch (err: any) {
+      // Include pop-up here for error
       console.error(err);
-      alert(err?.message || 'Failed to delete report.');
+      this.popup.error(err?.message || 'Failed to delete report.');
     } finally {
       this.deleting[base] = false;
     }
@@ -252,5 +257,24 @@ export class ReportsComponent implements OnInit {
       date.setHours(23, 59, 59, 999);
     }
     return date;
+  }
+
+    private async isAdminTokenValid(): Promise<void> {
+    const adminEmail = localStorage.getItem('email');
+    if (!adminEmail) {
+      this.adminAuthService.logoutAdmin();
+      this.router.navigate(['/login']);
+      return;
+    }
+    const adminID = await this.adminAuthService.getAdminIDByEmail(adminEmail);
+    const localToken = localStorage.getItem('adminToken');
+    const valid = await this.adminAuthService.isAdminTokenValid(adminID, localToken || undefined);
+    if (!valid) {
+      this.popup.error('Session expired. Please log in again.');
+      this.adminAuthService.logoutAdmin();
+      this.router.navigate(['/login']);
+    }
+
+    this.popup.info('Admin Session valid!'); // Remove later
   }
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { SupabaseService } from './supabase.service';
+import * as bcrypt from 'bcryptjs';
 import e from 'cors';
 
 @Injectable({
@@ -20,8 +21,8 @@ export class AdminAuthService {
   }
 
   async signUpAdmin(nickName: string, email: string, password: string) {
-    const success = await this.supabaseAuth.signUpAdmin(nickName, email, password);
-    return success;
+    const hashed = await bcrypt.hash(password, 10);
+    return this.supabaseAuth.signUpAdmin(nickName, email, hashed);
   }
 
   async loginAdmin(email: string, password: string) {
