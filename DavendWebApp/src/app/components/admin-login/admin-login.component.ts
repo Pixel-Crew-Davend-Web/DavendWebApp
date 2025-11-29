@@ -19,6 +19,8 @@ export class AdminLoginComponent {
   message?: string;
   messageType: 'error' | 'info' = 'info';
 
+  adminNickName: string = '';
+
   constructor(private adminAuthService: AdminAuthService) {
     this.adminAuthService.isLoggedIn().subscribe(status => {
       this.isLoggedIn = status;
@@ -38,6 +40,8 @@ export class AdminLoginComponent {
     } else if (page == "register") {
       this.logIn = false;
     }
+
+    this.adminNickName = localStorage.getItem('adminNickName') || '';
   }
 
   async login() {
@@ -50,6 +54,7 @@ export class AdminLoginComponent {
     this.message = e?.message || 'Login failed. Please try again.';
   } finally {
     this.isLoading = false;
+    this.adminNickName = localStorage.getItem('adminNickName') || '';
   }
 }
 

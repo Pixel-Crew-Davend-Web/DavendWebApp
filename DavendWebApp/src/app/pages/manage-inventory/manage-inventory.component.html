@@ -116,10 +116,10 @@
     <section class="card">
       <div class="card-head">
         <h3>Products</h3>
-        <p class="muted" *ngIf="!products?.length">No products yet. Add your first one above.</p>
+        <p class="muted" *ngIf="!products.length">No products yet. Add your first one above.</p>
       </div>
 
-      <div class="table-wrap" *ngIf="products?.length">
+      <div class="table-wrap" *ngIf="products.length">
         <table class="data-table">
           <thead>
             <tr>
