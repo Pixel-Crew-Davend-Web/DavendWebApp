@@ -7,6 +7,8 @@ import multer from "multer";
 import paypal from "@paypal/checkout-server-sdk";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 dotenv.config();
 
@@ -632,6 +634,82 @@ ${message}`,
     res.status(200).json({ message: "Contact email sent!", preview: nodemailer.getTestMessageUrl(info) });
   })
 );
+
+/* ---------- Admin Authentication ---------- */
+app.post("/api/admin/signup", asyncHandler(async (req, res) => {
+  const { nickName, email, password } = req.body;
+
+  if (!nickName || !email || !password)
+    return res.status(400).json({ success: false, message: "Missing fields" });
+
+  // Hash password
+  const hashed = await bcrypt.hash(password, 10);
+
+  // Insert new admin user
+  const { data, error } = await supabase
+    .from("AdminUsers")
+    .insert({
+      nickName,
+      email: email.toLowerCase(),
+      password: hashed
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error(error);
+    return res.json({ success: false, message: "Error creating user" });
+  }
+
+  return res.json({ success: true, adminID: data.id });
+}));
+
+
+app.post("/api/admin/login", asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  const { data: admin, error } = await supabase
+    .from("AdminUsers")
+    .select("*")
+    .eq("email", email.toLowerCase())
+    .maybeSingle();
+
+  if (!admin || error) {
+    return res.json({ success: false, message: "Invalid email or password" });
+  }
+
+  // Compare password
+  const match = await bcrypt.compare(password, admin.password);
+  if (!match) {
+    return res.json({ success: false, message: "Invalid email or password" });
+  }
+
+  // Create a new login token
+  const token = crypto.randomUUID();
+  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+
+  // Insert or update AdminLoginToken table
+  const { error: tokenErr } = await supabase
+    .from("AdminLoginToken")
+    .upsert({
+      AdminID: admin.id,
+      ADMIN_TOKEN_KEY: token,
+      ADMIN_TOKEN_EXPIRY: expiry
+    });
+
+  if (tokenErr) {
+    console.error(tokenErr);
+    return res.json({ success: false, message: "Failed to set login token" });
+  }
+
+  return res.json({
+    success: true,
+    adminID: admin.id,
+    adminToken: token,
+    adminTokenExpiry: expiry
+  });
+}));
+
 
 /* ---------- Errors ---------- */
 app.use((err, _req, res, _next) => {

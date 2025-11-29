@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { SupabaseService } from './supabase.service';
-import * as bcrypt from 'bcryptjs';
 import e from 'cors';
 
 @Injectable({
@@ -20,25 +19,39 @@ export class AdminAuthService {
     return this.loggedIn.asObservable();
   }
 
-  async signUpAdmin(nickName: string, email: string, password: string) {
-    const hashed = await bcrypt.hash(password, 10);
-    return this.supabaseAuth.signUpAdmin(nickName, email, hashed);
-  }
+ async signUpAdmin(nickName: string, email: string, password: string) {
+  const result = await fetch("https://davendwebappservice.onrender.com/api/admin/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nickName, email, password }),
+  }).then(res => res.json());
 
-  async loginAdmin(email: string, password: string) {
-    const success = await this.supabaseAuth.loginAdmin(email, password);
-    if (success) {
-      const adminID = (await this.supabaseAuth.getAdminIDByEmail(email));
-      const adminToken = (await this.supabaseAuth.getAdminToken(adminID)).ADMIN_TOKEN_KEY;
-      const adminTokenExpiry = (await this.supabaseAuth.getAdminToken(adminID)).ADMIN_TOKEN_EXPIRY;
-      localStorage.setItem('adminTokenExpiry', adminTokenExpiry);
-      localStorage.setItem('adminToken', adminToken);
-      localStorage.setItem('email', email);
-      localStorage.setItem('isLoggedIn', 'true');
-      this.loggedIn.next(true);
-    }
-    return success;
-  }
+  return result.success;
+}
+
+
+async loginAdmin(email: string, password: string) {
+  const result = await fetch("https://davendwebappservice.onrender.com/api/admin/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  }).then(res => res.json());
+
+  if (!result.success) return false;
+
+  const adminId = await this.supabaseAuth.getAdminIDByEmail(email);
+  const adminNickName = await this.supabaseAuth.getAdminNickNameByID(adminId);
+
+  localStorage.setItem('adminToken', result.adminToken);
+  localStorage.setItem('adminTokenExpiry', result.adminTokenExpiry);
+  localStorage.setItem('email', email);
+  localStorage.setItem('adminNickName', adminNickName);
+  localStorage.setItem('isLoggedIn', 'true');
+  this.loggedIn.next(true);
+
+  return true;
+}
+
 
   logoutAdmin() {
     this.supabaseAuth.logoutAdmin(); 

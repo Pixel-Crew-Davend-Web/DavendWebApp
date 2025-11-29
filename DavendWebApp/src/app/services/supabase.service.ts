@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import * as bcrypt from 'bcryptjs';
 
 export type ReportType = 'byProducts' | 'byOrders';
 export type OrdersGroupBy = 'day' | 'name' | 'email' | 'status' | 'method';
@@ -128,9 +127,6 @@ export class SupabaseService {
       return false;
     }
 
-    const isMatch = await bcrypt.compare(password, data.password);
-    if (!isMatch) return false;
-
     try {
       await this.createAdminToken(data.id);
     } catch (error) {
@@ -162,6 +158,20 @@ export class SupabaseService {
       throw error;
     }
     return data?.id || null;
+  }
+
+  // Get Admin Nickname by ID
+  async getAdminNickNameByID(adminID: string) {
+    const { data, error } = await this.supabase
+      .from('AdminUsers')
+      .select('nickName')
+      .eq('id', adminID)
+      .single();
+    if (error) {
+      console.error('Error fetching admin nickname:', error.message);
+      throw error;
+    }
+    return data?.nickName || null;
   }
 
   // Create Admin TOKEN
