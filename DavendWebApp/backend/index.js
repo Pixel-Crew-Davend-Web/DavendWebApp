@@ -38,7 +38,7 @@ const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
 
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY); 
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const PAYPAL_ENV = process.env.PAYPAL_ENV === "live" ? "live" : "sandbox";
 const PAYPAL_CLIENT_ID = requireEnv("PAYPAL_CLIENT_ID");
@@ -107,7 +107,7 @@ async function computeEtransfer(items) {
     normalized.push({
       product_id: p.id,
       name: it.name || p.name,
-      price: p.unit_amount / 100, 
+      price: p.unit_amount / 100,
       qty,
     });
   }
@@ -158,21 +158,26 @@ app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), a
     const s = event.data.object;
     const order = {
       draft_id: s?.metadata?.orderDraftId ?? s?.metadata?.draft_id ?? null,
-      email: s?.customer_details?.email ?? s?.customer_email ?? null,
-      name: s?.customer_details?.name ?? s?.metadata?.fullName ?? null,
-      amount_total: s?.amount_total ?? null,
-      currency: s?.currency ?? null,
+
       status: "paid",
-      checkout_session_id: s?.id ?? null,
-      payment_intent_id: s?.payment_intent ?? null,
-      reference: s?.payment_intent ?? null,
-      address: s?.metadata?.address ?? null,
-      city: s?.metadata?.city ?? null,
-      postal_code: s?.metadata?.postalCode ?? null,
-      phone: s?.metadata?.phone ?? null,
-      message: s?.metadata?.message ?? null,
-      source: "stripe",
+      method: "stripe",
+
+      // Match field names used by PayPal + E-transfer
+      reference: s?.payment_intent ?? s?.id ?? null,
+      message: s?.metadata?.message ?? "",
+
+      amount: typeof s?.amount_total === "number" ? s.amount_total / 100 : null,
+      currency: s?.currency?.toLowerCase() ?? "cad",
+
+      full_name: s?.customer_details?.name ?? s?.metadata?.fullName ?? "",
+      email: s?.customer_details?.email ?? s?.customer_email ?? "",
+      phone: s?.metadata?.phone ?? "",
+
+      address: s?.metadata?.address ?? "",
+      city: s?.metadata?.city ?? "",
+      postal_code: s?.metadata?.postalCode ?? "",
     };
+
 
     if (!order.draft_id) return res.status(500).send("missing draft_id");
 
@@ -372,11 +377,11 @@ app.post(
         itemsToInsert =
           ppItems.length > 0
             ? ppItems.map((i) => ({
-                productIdFromSku: i.sku || null,
-                name: i.name,
-                qty: Number(i.quantity || 1),
-                unitAmountFromGateway: toNum(i.unit_amount?.value),
-              }))
+              productIdFromSku: i.sku || null,
+              name: i.name,
+              qty: Number(i.quantity || 1),
+              unitAmountFromGateway: toNum(i.unit_amount?.value),
+            }))
             : [];
       } catch {
         itemsToInsert = [];
@@ -446,17 +451,26 @@ app.get(
           id: session.metadata?.orderDraftId || session.id,
           date: new Date(session.created * 1000).toISOString(),
           method: session.payment_method_types?.[0] || "card",
-          amount: (session.amount_total || 0) / 100,
-          reference: null,
+          amount:
+            typeof session.amount_total === "number"
+              ? session.amount_total / 100
+              : 0,
+
+          reference: session.payment_intent || session.id || null,
           message: session.metadata?.message || "",
+
           customer: {
-            fullName: session.metadata?.fullName || "",
+            fullName:
+              session.customer_details?.name ||
+              session.metadata?.fullName ||
+              "",
             email: session.customer_details?.email || "",
             phone: session.metadata?.phone || "",
             address: session.metadata?.address || "",
             city: session.metadata?.city || "",
             postalCode: session.metadata?.postalCode || "",
           },
+
         };
         return res.json({ session, order });
       } catch {
