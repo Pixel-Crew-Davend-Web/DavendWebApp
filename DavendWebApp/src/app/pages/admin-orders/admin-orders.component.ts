@@ -65,34 +65,34 @@ export class AdminOrdersComponent implements OnInit {
     return 'Pending';
   }
 
-  async loadOrders() {
-    this.loading = true;
-    this.errorMsg = '';
+async loadOrders() {
+  this.loading = true;
+  this.errorMsg = '';
 
-    try {
-      const data = await this.supabase.fetchAllOrders();
+  try {
+    const data = await this.supabase.fetchAllOrders();
 
-      this.orders = (data || []).map((o: DbOrder) => ({
-        id: o.draft_id,
-        customerName: o.name || '',
-        email: o.email || '',
-        phone: o.phone || '',
-        // can enhance later to show actual items summary
-        items: 'See order items',
-        method: o.method || '—',
-        date: (o.created_at || '').slice(0, 10),
-        status: this.mapDbStatus(o.status),
-        notes: o.message || '',
-        history: [],
-      }));
-    } catch (err) {
-      console.error('Failed to load orders', err);
-      this.errorMsg = 'Could not load orders. Please try again.';
-      this.showToast('Failed to load orders', 'error');
-    } finally {
-      this.loading = false;
-    }
+    this.orders = (data || []).map((o: DbOrder) => ({
+      id: o.draft_id,
+      customerName: o.full_name || '',
+      email: o.email || '',
+      phone: o.phone || '',
+      items: 'See order items',
+      method: o.method || '—',
+      date: (o.created_at || '').slice(0, 10),
+      status: this.mapDbStatus(o.status),
+      notes: o.message || '',
+      history: [],
+    }));
+  } catch (err) {
+    console.error('Failed to load orders', err);
+    this.errorMsg = 'Could not load orders. Please try again.';
+    this.showToast('Failed to load orders', 'error');
+  } finally {
+    this.loading = false;
   }
+}
+
 
   async validateSession() {
     const email = localStorage.getItem('email');
