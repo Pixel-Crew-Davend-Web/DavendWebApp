@@ -28,15 +28,16 @@ export interface DbOrder {
   draft_id: string;
   created_at: string;
   amount?: number | null;
-  amount_total?: number | null;
   currency?: string | null;
   status?: string | null;
   method?: string | null;
-  name?: string | null;
+  full_name?: string | null;
   email?: string | null;
   phone?: string | null;
   message?: string | null;
+  reference?: string | null;  
 }
+
 
 export interface DbOrderItem {
   order_id?: string | null;
@@ -360,7 +361,7 @@ export class SupabaseService {
     const { data, error } = await this.supabase
       .from('Orders')
       .select(
-        'draft_id, created_at, amount, amount_total, currency, status, method, name, email, phone, message'
+        'draft_id, created_at, amount, currency, status, method, full_name, email, phone, message, reference'
       )
       .order('created_at', { ascending: false });
 
@@ -384,8 +385,9 @@ export class SupabaseService {
     const { data: order, error: orderErr } = await this.supabase
       .from('Orders')
       .select(
-        'draft_id, created_at, amount, amount_total, currency, status, method, name, email, phone, message'
+        'draft_id, created_at, amount, currency, status, method, full_name, email, phone, message'
       )
+
       .eq('draft_id', id)
       .single();
 
@@ -517,8 +519,9 @@ export class SupabaseService {
       const { data, error } = await this.supabase
         .from('Orders')
         .select(
-          'draft_id, created_at, amount, amount_total, currency, status, method, name, email'
+          'draft_id, created_at, amount, currency, status, method, full_name, email'
         )
+
         .gte('created_at', params.from.toISOString())
         .lte('created_at', params.to.toISOString());
 
@@ -529,7 +532,7 @@ export class SupabaseService {
         id: o.draft_id,
         date: o.created_at,
         day: o.created_at ? o.created_at.slice(0, 10) : null,
-        name: o.name ?? '',
+        name: o.full_name ?? '',
         email: o.email ?? '',
         status: o.status ?? '',
         method: o.method ?? '',
@@ -731,12 +734,10 @@ export class SupabaseService {
    * -------------------------------- */
 
   private pickAmount(o: any): number {
-    // prefer cents field if available
-    if (typeof o.amount_total === 'number') return o.amount_total / 100;
     const a = Number(o.amount);
     return Number.isFinite(a) ? a : 0;
-    // You can also sum OrderItems if you want subtotal-by-items instead.
   }
+
 
   private pickPrice(p: any): number {
     if (typeof p.price_cents === 'number' && Number.isFinite(p.price_cents))
@@ -783,16 +784,16 @@ export class SupabaseService {
   }
 
   async uploadServiceAsset(file: File): Promise<string> {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${crypto.randomUUID()}.${fileExt}`;
-  const filePath = `${fileName}`;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `${fileName}`;
 
-  const { error } = await this.supabase.storage
-    .from('service-images')
-    .upload(filePath, file);
+    const { error } = await this.supabase.storage
+      .from('service-images')
+      .upload(filePath, file);
 
-  if (error) throw error;
-  return filePath;
-}
+    if (error) throw error;
+    return filePath;
+  }
 
 }

@@ -71,7 +71,7 @@ export class TrackOrderComponent {
 
       this.result = {
         id: order.draft_id,
-        customerName: order.name || '',
+        customerName: order.full_name || '',
         email: order.email || '',
         phone: order.phone || '',
         items: itemsText,

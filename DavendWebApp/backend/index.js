@@ -57,6 +57,30 @@ const feBaseUrl = () => {
 const toNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
 //  Product helpers 
+async function decrementInventory(orderId) {
+  const { data: items, error: itemErr } = await supabase
+    .from("OrderItems")
+    .select("product_id, qty")
+    .eq("order_id", orderId);
+
+  if (itemErr) throw itemErr;
+  if (!items || items.length === 0) return;
+
+  for (const it of items) {
+    if (!it.product_id || !it.qty) continue;
+
+    // decrement qty
+    const { error: updErr } = await supabase
+      .from("Products")
+      .update({
+        qty: supabase.rpc('decrement', { amount: it.qty })
+      })
+      .eq("id", it.product_id);
+
+    if (updErr) console.error("Inventory update failed:", updErr);
+  }
+}
+
 async function fetchProduct(productIdRaw) {
   const productId = String(productIdRaw || "").trim();
   if (!productId) throw new Error("Product not found: <empty id>");
@@ -84,18 +108,26 @@ async function buildStripeLineItems(items) {
   const rows = await Promise.all(
     (items || []).map(async (it) => {
       const p = await fetchProduct(it.id);
+
       return {
         quantity: Number(it.qty) || 1,
         price_data: {
           currency: "cad",
-          unit_amount: p.unit_amount,
-          product_data: { name: p.name },
-        },
+          unit_amount: p.unit_amount,  // integer cents
+          product_data: {
+            name: p.name,
+            metadata: {
+              product_id: p.id
+            }
+          }
+        }
       };
     })
   );
+
   return rows;
 }
+
 
 async function computeEtransfer(items) {
   let totalCents = 0;
@@ -146,7 +178,7 @@ app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), a
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    console.error("signature fail:", err?.message || err);
+    console.error("❌ Stripe signature fail:", err?.message || err);
     return res.status(400).send("bad signature");
   }
 
@@ -154,8 +186,12 @@ app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), a
     return res.sendStatus(200);
   }
 
+  console.log("🔥 Stripe checkout.session.completed received");
+
   try {
     const s = event.data.object;
+
+    /* -------------------- SAVE ORDER -------------------- */
     const order = {
       draft_id: s?.metadata?.orderDraftId ?? s?.metadata?.draft_id ?? null,
 
@@ -181,21 +217,30 @@ app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), a
 
     if (!order.draft_id) return res.status(500).send("missing draft_id");
 
-    const { error } = await supabase.from("Orders").upsert(order, { onConflict: "draft_id" });
-    if (error) {
-      console.error("Orders upsert failed:", error.message || error);
-      return res.status(500).send("db fail");
+        console.log(`   → Decreasing qty for product ${it.product_id} by ${it.qty}`);
+
+        const { error: decErr } = await supabase.rpc("decrement_product_qty", {
+          pid: it.product_id,
+          amount: it.qty
+        });
+
+        if (decErr) {
+          console.error(`❌ Inventory decrement failed for ${it.product_id}:`, decErr);
+        } else {
+          console.log(`✔ Inventory updated for ${it.product_id}`);
+        }
+      }
     }
 
     return res.sendStatus(200);
   } catch (err) {
-    console.error("webhook error:", err);
+    console.error("❌ Stripe webhook error:", err);
     return res.status(500).send("webhook error");
   }
 });
 
-
 app.use(bodyParser.json());
+
 
 /* ---------- Health ---------- */
 app.get("/", (_req, res) => res.send("Davend Email + Payments Backend Running ✔️"));
@@ -223,6 +268,7 @@ app.post(
           city: customer.city ?? "",
           postalCode: customer.postalCode ?? "",
           message: customer.message ?? "",
+          items: JSON.stringify(items),
         },
       });
 
@@ -261,6 +307,39 @@ app.post(
         city: customer.city || "",
         postal_code: customer.postalCode || "",
       });
+      /* ----- INVENTORY UPDATE FOR E-TRANSFER ----- */
+      console.log("🔥 updating inventory...");
+
+      for (const ni of normalizedItems) {
+        const productId = ni.product_id;
+        const qtyPurchased = Number(ni.qty);
+
+        console.log(`Updating inventory: product ${productId}, qty -${qtyPurchased}`);
+
+        // Fetch current product qty
+        const { data: prod, error: prodErr } = await supabase
+          .from("Products")
+          .select("qty")
+          .eq("id", productId)
+          .single();
+
+        if (prodErr) {
+          console.error("Error fetching product qty:", prodErr.message);
+          continue;
+        }
+
+        const newQty = Math.max(0, (prod.qty ?? 0) - qtyPurchased);
+
+        const { error: updErr } = await supabase
+          .from("Products")
+          .update({ qty: newQty })
+          .eq("id", productId);
+
+        if (updErr) {
+          console.error("Error updating inventory:", updErr.message);
+        }
+      }
+      console.log("🔥 inventory update finished");
 
       for (const ni of normalizedItems) {
         await insertItem({
@@ -426,10 +505,42 @@ app.post(
           });
         }
       }
+      /* ---- INVENTORY UPDATE FOR PAYPAL ---- */
+      console.log("🔥 PayPal payment captured — updating inventory...");
+
+      try {
+        const { data: orderItems, error: oiErr } = await supabase
+          .from("OrderItems")
+          .select("product_id, qty")
+          .eq("order_id", orderDraftId);
+
+        if (oiErr) {
+          console.error("❌ Failed to fetch OrderItems for PayPal:", oiErr);
+        } else {
+          for (const it of orderItems) {
+            console.log(`   → Decreasing inventory: product ${it.product_id}, qty ${it.qty}`);
+
+            const { error: decErr } = await supabase.rpc("decrement_product_qty", {
+              pid: it.product_id,
+              amount: it.qty
+            });
+
+            if (decErr) {
+              console.error(`❌ Failed to decrement inventory for ${it.product_id}:`, decErr);
+            } else {
+              console.log(`✔ Inventory updated for product ${it.product_id}`);
+            }
+          }
+
+        }
+      } catch (e) {
+        console.error("❌ PayPal inventory update failed:", e);
+      }
 
       return res.json({ status: "success", order });
     } catch (err) {
       if (String(err?.message || "").startsWith("Product not found:")) {
+
         return res.status(404).send("Product not found");
       }
       console.error("❌ paypal capture failed:", err);
