@@ -123,6 +123,20 @@ this.orders = (data || []).map((o: DbOrder) => ({
     }
   }
 
+  statusClass(status: string): string {
+  switch (status) {
+    case 'Pending':
+      return 'status-pending';
+    case 'Completed':
+      return 'status-completed';
+    case 'Cancelled':
+      return 'status-cancelled';
+    default:
+      return '';
+  }
+}
+
+
   // filtered + sorted
   get filteredOrders(): Order[] {
     let list = [...this.orders];
