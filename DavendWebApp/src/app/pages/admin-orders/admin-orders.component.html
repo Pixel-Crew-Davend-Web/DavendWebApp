@@ -1,124 +1,303 @@
-<div class="orders-container">
-  <div class="orders-header">
-    <h2>Manage Customer Orders</h2>
+<div class="orders-page">
+  <!-- Header -->
+  <div class="orders-header-row">
+    <div class="orders-header-text">
+      <h1>Manage Customer Orders</h1>
+      <p>Review, filter, and update customer orders in one place.</p>
+    </div>
 
-    <div class="controls">
-      <input
-        type="text"
-        [(ngModel)]="searchTerm"
-        placeholder="Search by ID, customer, or item..."
-      />
-
-      <select [(ngModel)]="filterStatus">
-        <option value="All">All Statuses</option>
-        <option value="Pending">Pending</option>
-        <option value="Completed">Completed</option>
-        <option value="Cancelled">Cancelled</option>
-      </select>
-
-      <button (click)="sortNewestFirst = !sortNewestFirst">
-        Sort: {{ sortNewestFirst ? 'Newest → Oldest' : 'Oldest → Newest' }}
-      </button>
-
-      <button class="export" (click)="downloadCSV()">Export CSV</button>
-      <button class="home" (click)="goHome()">Home</button>
-      <button class="logout" (click)="logout()">Logout</button>
+    <div class="orders-header-actions">
+      <button class="btn btn-export" (click)="downloadCSV()">Export CSV</button>
+      <button class="btn btn-ghost" (click)="goHome()">Home</button>
+      <button class="btn btn-danger" (click)="logout()">Logout</button>
     </div>
   </div>
 
-  <table class="orders-table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Customer</th>
-        <th>Items</th>
-        <th>Method</th>
-        <th>Reference</th>
-        <th>Date</th>
-        <th>Status</th>
-        <th>Notes</th>
-        <th>Actions</th>
-        <th>History</th>
-      </tr>
-    </thead>
+  <!-- Filters -->
+  <div class="orders-filters">
+    <input
+      type="text"
+      class="orders-search"
+      placeholder="Search by ID, customer, method, reference, or status…"
+      [(ngModel)]="searchTerm"
+    />
 
-    <tbody>
-      <tr *ngFor="let o of filteredOrders">
-        <td>{{ o.id }}</td>
+    <select
+      class="orders-select"
+      [(ngModel)]="filterStatus"
+    >
+      <option value="All">All statuses</option>
+      <option value="Pending">Pending</option>
+      <option value="Completed">Completed</option>
+      <option value="Cancelled">Cancelled</option>
+    </select>
 
-        <td>
-          <div class="cust-name">{{ o.customerName }}</div>
-          <div class="cust-meta">{{ o.email }} • {{ o.phone }}</div>
-        </td>
+    <button
+      class="btn btn-ghost sort-btn"
+      type="button"
+      (click)="sortNewestFirst = !sortNewestFirst"
+    >
+      {{ sortNewestFirst ? 'Newest → Oldest' : 'Oldest → Newest' }}
+    </button>
+  </div>
 
-        <td>{{ o.items }}</td>
-        <td>{{ o.method || '—' }}</td>
-        <td>{{ o.reference || '—' }}</td>
-        <td>{{ o.date }}</td>
+  <!-- Table -->
+  <div class="orders-table-wrapper">
+    <table class="orders-table">
+      <thead>
+        <tr>
+          <th class="col-id">ID</th>
+          <th class="col-customer">Customer</th>
+          <th class="col-items">Items</th>
+          <th class="col-method">Method</th>
+          <th class="col-reference">Reference</th>
+          <th class="col-date">Date</th>
+          <th class="col-status">Status</th>
+          <th class="col-notes">Notes</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
 
-        <td>
-          <span [ngClass]="statusClass(o.status)">
-            {{ o.status }}
-          </span>
-        </td>
+      <tbody>
+        <tr *ngFor="let o of filteredOrders">
+          <!-- ID -->
+          <td class="id-cell">
+            {{ o.id }}
+          </td>
 
-        <td class="notes">
-          {{ o.notes || '—' }}
-        </td>
- 
-        <td class="actions">
-          <button class="view" (click)="openDetails(o)">View</button>
-          <button class="edit" (click)="beginEdit(o)" *ngIf="!o._editing">
-            Edit
-          </button>
+          <!-- Customer -->
+          <td class="customer-cell">
+            <div class="customer-name">
+              {{ displayCustomerName(o) }}
+            </div>
+            <div class="customer-meta" *ngIf="o.email || o.phone">
+              <span *ngIf="o.email">{{ o.email }}</span>
+              <span *ngIf="o.email && o.phone"> · </span>
+              <span *ngIf="o.phone">{{ o.phone }}</span>
+            </div>
+          </td>
 
-          <div *ngIf="o._editing" class="edit-controls">
-            <select [(ngModel)]="o._pendingStatus">
-              <option value="Pending">Pending</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
+<!-- Items -->
+<td class="items-cell">
+  <ng-container *ngIf="getItemsForDisplay(o).length; else noItems">
+    <div class="item-dot" *ngFor="let item of getItemsForDisplay(o)">
+      • {{ item }}
+    </div>
+  </ng-container>
+  <ng-template #noItems>
+    <span class="notes-muted">No items</span>
+  </ng-template>
+</td>
 
-            <button class="save" (click)="saveEdit(o)">Save</button>
-            <button class="cancel" (click)="cancelEdit(o)">Cancel</button>
-          </div>
-        </td>
 
-        <td class="history">
-          <div *ngIf="o.history.length; else noHist">
-            <div *ngFor="let h of o.history">• {{ h }}</div>
-          </div>
+          <!-- Method -->
+          <td class="method-cell">
+            {{ formatMethod(o.method) }}
+          </td>
 
-          <ng-template #noHist>• No changes yet</ng-template>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+          <!-- Reference -->
+          <td class="reference-cell" [title]="o.reference || 'No reference'">
+            <span *ngIf="o.reference; else noRef">
+              {{ (o.reference || '') | slice:0:20
+              }}<span *ngIf="(o.reference || '').length > 20">…</span>
+            </span>
+            <ng-template #noRef>
+              <span class="notes-muted">No reference</span>
+            </ng-template>
+          </td>
 
-  <!-- Details Modal -->
+          <!-- Date -->
+          <td class="date-cell">
+            {{ o.date }}
+          </td>
+
+          <!-- Status -->
+          <td class="status-cell">
+            <span
+              class="status-badge"
+              [ngClass]="{
+                'status-pending': o.status === 'Pending',
+                'status-completed': o.status === 'Completed',
+                'status-cancelled': o.status === 'Cancelled'
+              }"
+            >
+              {{ o.status | uppercase }}
+            </span>
+          </td>
+
+          <!-- Notes -->
+          <td class="notes-cell" [title]="displayNotes(o)">
+            <span class="notes-muted">{{ displayNotes(o) }}</span>
+          </td>
+
+          <!-- Actions -->
+          <td class="actions-cell">
+            <!-- View details -->
+            <button
+              type="button"
+              class="btn btn-small btn-ghost"
+              (click)="openDetails(o)"
+            >
+              View
+            </button>
+
+            <!-- When editing -->
+            <ng-container *ngIf="o._editing; else editStatusButton">
+              <select
+                class="status-select-inline"
+                [(ngModel)]="o._pendingStatus"
+              >
+                <option [ngValue]="'Pending'">Pending</option>
+                <option [ngValue]="'Completed'">Completed</option>
+                <option [ngValue]="'Cancelled'">Cancelled</option>
+              </select>
+
+              <button
+                type="button"
+                class="btn btn-small btn-primary"
+                (click)="saveEdit(o)"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                class="btn btn-small btn-ghost"
+                (click)="cancelEdit(o)"
+              >
+                Cancel
+              </button>
+            </ng-container>
+
+            <!-- Edit status button when not in edit mode -->
+            <ng-template #editStatusButton>
+              <button
+                type="button"
+                class="btn btn-small btn-ghost"
+                (click)="beginEdit(o)"
+              >
+                Edit Status
+              </button>
+            </ng-template>
+          </td>
+        </tr>
+
+        <tr *ngIf="filteredOrders.length === 0">
+          <td class="empty-row" colspan="9">
+            No orders match your current filters.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Toast -->
+  <div
+    class="toast"
+    *ngIf="toastMsg"
+    [ngClass]="{
+      'toast-success': toastType === 'success',
+      'toast-error': toastType === 'error'
+    }"
+  >
+    {{ toastMsg }}
+  </div>
+
+  <!-- Modal -->
   <div class="modal-backdrop" *ngIf="selected">
     <div class="modal">
       <div class="modal-header">
-        <h3>Order Details – {{ selected.id }}</h3>
+        <div class="modal-title">
+          <div class="modal-overline">Order Details</div>
+          <div class="modal-id">{{ selected!.id }}</div>
+        </div>
+        <button type="button" class="modal-close" (click)="closeDetails()">
+          ×
+        </button>
       </div>
 
       <div class="modal-body">
-        <p><strong>Customer:</strong> {{ selected.customerName }}</p>
-        <p><strong>Email:</strong> {{ selected.email }}</p>
-        <p><strong>Phone:</strong> {{ selected.phone }}</p>
-        <p><strong>Items:</strong> {{ selected.items }}</p>
-        <p><strong>Method:</strong> {{ selected.method || '—' }}</p>
+        <!-- Customer & method -->
+        <div class="modal-section">
+          <div class="modal-section-title">Customer</div>
+          <div class="modal-grid">
+            <div>
+              <div class="modal-label">Name</div>
+              <div class="modal-value">
+                {{ displayCustomerName(selected!) }}
+              </div>
+            </div>
+            <div>
+              <div class="modal-label">Method</div>
+              <div class="modal-value">
+                {{ formatMethod(selected!.method) }}
+              </div>
+            </div>
+            <div>
+              <div class="modal-label">Email</div>
+              <div class="modal-value">
+                {{ selected!.email || '—' }}
+              </div>
+            </div>
+            <div>
+              <div class="modal-label">Phone</div>
+              <div class="modal-value">
+                {{ selected!.phone || '—' }}
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <!-- Added reference inside modal -->
-        <p><strong>Reference:</strong> {{ selected.reference || '—' }}</p>
+        <!-- Order summary -->
+        <div class="modal-section">
+          <div class="modal-section-title">Order</div>
+          <div class="modal-grid">
+            <div>
+              <div class="modal-label">Reference</div>
+              <div class="modal-value">
+                {{ selected!.reference || '—' }}
+              </div>
+            </div>
+            <div>
+              <div class="modal-label">Date</div>
+              <div class="modal-value">
+                {{ selected!.date || '—' }}
+              </div>
+            </div>
+            <div>
+              <div class="modal-label">Status</div>
+              <div class="modal-value">
+                <span
+                  class="status-badge"
+                  [ngClass]="{
+                    'status-pending': selected!.status === 'Pending',
+                    'status-completed': selected!.status === 'Completed',
+                    'status-cancelled': selected!.status === 'Cancelled'
+                  }"
+                >
+                  {{ selected!.status | uppercase }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <p><strong>Date:</strong> {{ selected.date }}</p>
-        <p><strong>Status:</strong> {{ selected.status }}</p>
-        <p><strong>Notes:</strong> {{ selected.notes || '—' }}</p>
+        <!-- Notes -->
+        <div class="modal-section">
+          <div class="modal-section-title">Notes</div>
+          <div class="modal-notes">
+            {{ getSelectedNotesText() }}
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">
-        <button (click)="closeDetails()">Close</button>
+        <button
+          type="button"
+          class="btn btn-small btn-ghost"
+          (click)="closeDetails()"
+        >
+          Close
+        </button>
       </div>
     </div>
   </div>
