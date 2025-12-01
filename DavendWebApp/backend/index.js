@@ -291,6 +291,8 @@ app.post(
   }
 );
 
+app.use(bodyParser.json());
+
 /* ---------- Health ---------- */
 app.get("/", (_req, res) => res.send("Davend Email + Payments Backend Running ✔️"));
 
