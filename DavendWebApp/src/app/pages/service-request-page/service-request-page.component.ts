@@ -3,6 +3,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { PopupService } from '../../services/popup.service';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-service-request-page',
@@ -37,7 +38,7 @@ export class ServiceRequestPageComponent implements OnDestroy {
 
   @ViewChild('reuploadInput', { static: false }) reuploadInput!: ElementRef<HTMLInputElement>;
 
-  constructor(private fb: FormBuilder, private http: HttpClient, private sanitizer: DomSanitizer, private popup: PopupService) {
+  constructor(private fb: FormBuilder, private http: HttpClient, private sanitizer: DomSanitizer, private popup: PopupService, private route: ActivatedRoute,) {
     this.requestForm = this.fb.group({
       fullName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
@@ -46,6 +47,20 @@ export class ServiceRequestPageComponent implements OnDestroy {
       designFile: [null, Validators.required]
     });
   }
+
+  ngOnInit() {
+  const selected = this.route.snapshot.queryParamMap.get('service');
+
+  if (selected) {
+    const formatted = `[${selected}] --- `;
+
+    this.requestForm.patchValue({
+      message: formatted
+    });
+
+    this.selectedService = `${selected} Request`; // optional nice touch
+  }
+}
 
   // Clean up object URL when component dies
   ngOnDestroy(): void {
