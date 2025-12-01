@@ -28,14 +28,15 @@ export interface DbOrder {
   draft_id: string;
   created_at: string;
   amount?: number | null;
+  amount_total?: number | null;
   currency?: string | null;
   status?: string | null;
   method?: string | null;
-  full_name?: string | null;
+  reference?: string | null;
+  name?: string | null;
   email?: string | null;
   phone?: string | null;
   message?: string | null;
-  reference?: string | null;  
 }
 
 
@@ -357,24 +358,20 @@ export class SupabaseService {
   // Orders (simple helpers)
   // ------------------------
 
-  async fetchAllOrders(): Promise<DbOrder[]> {
-    const { data, error } = await this.supabase
-      .from('Orders')
-      .select(
-        'draft_id, created_at, amount, currency, status, method, full_name, email, phone, message, reference'
-      )
-      .order('created_at', { ascending: false });
+async fetchAllOrders(): Promise<DbOrder[]> {
+  const { data, error } = await this.supabase
+    .from('Orders')
+    .select('*') // pull all columns, avoid schema mismatch issues
+    .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error(
-        'Error fetching orders from Supabase',
-        error.message || error
-      );
-      throw error;
-    }
-
-    return (data ?? []) as DbOrder[];
+  if (error) {
+    console.error('Error fetching orders from Supabase', error.message || error);
+    throw error;
   }
+
+  return (data ?? []) as DbOrder[];
+}
+
 
   async fetchOrderWithItems(
     draftId: string
