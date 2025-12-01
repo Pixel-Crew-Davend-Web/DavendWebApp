@@ -167,80 +167,129 @@ async function insertItem(item) {
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 app.use((req, res, next) => next());
-
 /* ---------- Stripe webhook (raw body) ---------- */
-app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), async (req, res) => {
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      req.headers["stripe-signature"],
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch (err) {
-    console.error("❌ Stripe signature fail:", err?.message || err);
-    return res.status(400).send("bad signature");
-  }
-
-  if (event.type !== "checkout.session.completed") {
-    return res.sendStatus(200);
-  }
-
-  console.log("🔥 Stripe checkout.session.completed received");
-
-  try {
-    const s = event.data.object;
-
-    /* -------------------- SAVE ORDER -------------------- */
-    const order = {
-      draft_id: s?.metadata?.orderDraftId ?? s?.metadata?.draft_id ?? null,
-
-      status: "paid",
-      method: "stripe",
-
-      // Match field names used by PayPal + E-transfer
-      reference: s?.payment_intent ?? s?.id ?? null,
-      message: s?.metadata?.message ?? "",
-
-      amount: typeof s?.amount_total === "number" ? s.amount_total / 100 : null,
-      currency: s?.currency?.toLowerCase() ?? "cad",
-
-      full_name: s?.customer_details?.name ?? s?.metadata?.fullName ?? "",
-      email: s?.customer_details?.email ?? s?.customer_email ?? "",
-      phone: s?.metadata?.phone ?? "",
-
-      address: s?.metadata?.address ?? "",
-      city: s?.metadata?.city ?? "",
-      postal_code: s?.metadata?.postalCode ?? "",
-    };
-
-
-    if (!order.draft_id) return res.status(500).send("missing draft_id");
-
-        console.log(`   → Decreasing qty for product ${it.product_id} by ${it.qty}`);
-
-        const { error: decErr } = await supabase.rpc("decrement_product_qty", {
-          pid: it.product_id,
-          amount: it.qty
-        });
-
-        if (decErr) {
-          console.error(`❌ Inventory decrement failed for ${it.product_id}:`, decErr);
-        } else {
-          console.log(`✔ Inventory updated for ${it.product_id}`);
-        }
-      }
+app.post(
+  "/api/webhooks/stripe",
+  bodyParser.raw({ type: "application/json" }),
+  async (req, res) => {
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        req.headers["stripe-signature"],
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error("❌ Stripe signature fail:", err?.message || err);
+      return res.status(400).send("bad signature");
     }
 
-    return res.sendStatus(200);
-  } catch (err) {
-    console.error("❌ Stripe webhook error:", err);
-    return res.status(500).send("webhook error");
+    if (event.type !== "checkout.session.completed") {
+      return res.sendStatus(200);
+    }
+
+    console.log("🔥 Stripe checkout.session.completed received");
+
+    try {
+      const s = event.data.object;
+
+      /* -------------------- SAVE ORDER -------------------- */
+      const order = {
+        draft_id: s?.metadata?.orderDraftId ?? s?.metadata?.draft_id ?? null,
+        status: "paid",
+        method: "stripe",
+        reference: s?.payment_intent ?? s?.id ?? null,
+        message: s?.metadata?.message ?? "",
+        amount:
+          typeof s?.amount_total === "number" ? s.amount_total / 100 : null,
+        currency: s?.currency?.toLowerCase() ?? "cad",
+        full_name: s?.customer_details?.name ?? s?.metadata?.fullName ?? "",
+        email: s?.customer_details?.email ?? s?.customer_email ?? "",
+        phone: s?.metadata?.phone ?? "",
+        address: s?.metadata?.address ?? "",
+        city: s?.metadata?.city ?? "",
+        postal_code: s?.metadata?.postalCode ?? "",
+      };
+
+      if (!order.draft_id) {
+        console.error("❌ Missing draft_id in Stripe metadata");
+        return res.status(500).send("missing draft_id");
+      }
+
+      await supabase.from("Orders").upsert(order, {
+        onConflict: "draft_id",
+      });
+
+      /* -------------------- INSERT ORDER ITEMS -------------------- */
+      console.log("🔥 Fetching Stripe line items...");
+      const lineItems = await stripe.checkout.sessions.listLineItems(s.id);
+      const cartItems = JSON.parse(s.metadata.items || "[]");
+
+      for (const li of lineItems.data) {
+        const qty = li.quantity;
+        const name = li.description;
+
+        const matched = cartItems.find(
+          (ci) => ci.name === name && Number(ci.qty) === Number(qty)
+        );
+
+        const productId = matched ? matched.id : null;
+
+        console.log(`→ Adding OrderItem: ${name} x${qty}, productId = ${productId}`);
+
+        const { error: itemErr } = await supabase.from("OrderItems").insert({
+          order_id: order.draft_id,
+          product_id: productId,
+          name,
+          price: li.price?.unit_amount ? li.price.unit_amount / 100 : 0,
+          qty,
+        });
+
+        if (itemErr) console.error("❌ Stripe OrderItem insert error:", itemErr);
+      }
+
+      /* -------------------- UPDATE INVENTORY -------------------- */
+      console.log("🔥 Updating inventory for Stripe...");
+
+      const { data: orderItems, error: oiErr } = await supabase
+        .from("OrderItems")
+        .select("product_id, qty")
+        .eq("order_id", order.draft_id);
+
+      if (oiErr) {
+        console.error("❌ Could not fetch OrderItems for Stripe inventory:", oiErr);
+      } else {
+        for (const it of orderItems) {
+          if (!it.product_id) continue;
+
+          console.log(`   → Decreasing qty for product ${it.product_id} by ${it.qty}`);
+
+          const { error: decErr } = await supabase.rpc(
+            "decrement_product_qty",
+            {
+              pid: it.product_id,
+              amount: it.qty,
+            }
+          );
+
+          if (decErr) {
+            console.error(
+              `❌ Inventory decrement failed for ${it.product_id}:`,
+              decErr
+            );
+          } else {
+            console.log(`✔ Inventory updated for ${it.product_id}`);
+          }
+        }
+      }
+
+      return res.sendStatus(200);
+    } catch (err) {
+      console.error("❌ Stripe webhook error:", err);
+      return res.status(500).send("webhook error");
+    }
   }
-});
-
-app.use(bodyParser.json());
-
+);
 
 /* ---------- Health ---------- */
 app.get("/", (_req, res) => res.send("Davend Email + Payments Backend Running ✔️"));
