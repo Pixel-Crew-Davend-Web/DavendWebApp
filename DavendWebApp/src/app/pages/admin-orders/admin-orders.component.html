@@ -33,9 +33,10 @@
         <th>Customer</th>
         <th>Items</th>
         <th>Method</th>
+        <th>Reference</th>
         <th>Date</th>
         <th>Status</th>
-        <th>Notes</th>        
+        <th>Notes</th>
         <th>Actions</th>
         <th>History</th>
       </tr>
@@ -52,6 +53,7 @@
 
         <td>{{ o.items }}</td>
         <td>{{ o.method || '—' }}</td>
+        <td>{{ o.reference || '—' }}</td>
         <td>{{ o.date }}</td>
 
         <td>
@@ -63,7 +65,7 @@
         <td class="notes">
           {{ o.notes || '—' }}
         </td>
-
+ 
         <td class="actions">
           <button class="view" (click)="openDetails(o)">View</button>
           <button class="edit" (click)="beginEdit(o)" *ngIf="!o._editing">
@@ -93,7 +95,7 @@
     </tbody>
   </table>
 
-  <!--Details Modal-->
+  <!-- Details Modal -->
   <div class="modal-backdrop" *ngIf="selected">
     <div class="modal">
       <div class="modal-header">
@@ -106,6 +108,10 @@
         <p><strong>Phone:</strong> {{ selected.phone }}</p>
         <p><strong>Items:</strong> {{ selected.items }}</p>
         <p><strong>Method:</strong> {{ selected.method || '—' }}</p>
+
+        <!-- Added reference inside modal -->
+        <p><strong>Reference:</strong> {{ selected.reference || '—' }}</p>
+
         <p><strong>Date:</strong> {{ selected.date }}</p>
         <p><strong>Status:</strong> {{ selected.status }}</p>
         <p><strong>Notes:</strong> {{ selected.notes || '—' }}</p>

@@ -35,6 +35,7 @@ export interface DbOrder {
   email?: string | null;
   phone?: string | null;
   message?: string | null;
+  reference?: string | null;  
 }
 
 
@@ -360,7 +361,7 @@ export class SupabaseService {
     const { data, error } = await this.supabase
       .from('Orders')
       .select(
-        'draft_id, created_at, amount, currency, status, method, full_name, email, phone, message'
+        'draft_id, created_at, amount, currency, status, method, full_name, email, phone, message, reference'
       )
       .order('created_at', { ascending: false });
 

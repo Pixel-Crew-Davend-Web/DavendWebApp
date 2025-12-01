@@ -12,8 +12,9 @@ interface Order {
   email: string;
   phone: string;
   items: string;
-  method?: string;           // e.g. card, e-transfer, etc.
-  date: string;              // YYYY-MM-DD
+  method?: string;
+  reference?: string;     // ✅ NEW FIELD
+  date: string;
   status: OrderStatus;
   notes?: string;
   history: string[];
@@ -39,7 +40,6 @@ export class AdminOrdersComponent implements OnInit {
     this.loadOrders();
   }
 
-  // toast
   toastMsg = '';
   toastType: 'success' | 'error' | '' = '';
   toastTimer: any;
@@ -47,12 +47,10 @@ export class AdminOrdersComponent implements OnInit {
   loading = false;
   errorMsg = '';
 
-  // filters
   searchTerm = '';
   filterStatus: 'All' | OrderStatus = 'All';
   sortNewestFirst = true;
 
-  // orders now come from Supabase
   orders: Order[] = [];
 
   private mapDbStatus(status: string | null | undefined): OrderStatus {
@@ -65,34 +63,34 @@ export class AdminOrdersComponent implements OnInit {
     return 'Pending';
   }
 
-async loadOrders() {
-  this.loading = true;
-  this.errorMsg = '';
+  async loadOrders() {
+    this.loading = true;
+    this.errorMsg = '';
 
-  try {
-    const data = await this.supabase.fetchAllOrders();
+    try {
+      const data = await this.supabase.fetchAllOrders();
 
-    this.orders = (data || []).map((o: DbOrder) => ({
-      id: o.draft_id,
-      customerName: o.full_name || '',
-      email: o.email || '',
-      phone: o.phone || '',
-      items: 'See order items',
-      method: o.method || '—',
-      date: (o.created_at || '').slice(0, 10),
-      status: this.mapDbStatus(o.status),
-      notes: o.message || '',
-      history: [],
-    }));
-  } catch (err) {
-    console.error('Failed to load orders', err);
-    this.errorMsg = 'Could not load orders. Please try again.';
-    this.showToast('Failed to load orders', 'error');
-  } finally {
-    this.loading = false;
+      this.orders = (data || []).map((o: DbOrder) => ({
+        id: o.draft_id,
+        customerName: o.full_name || '',
+        email: o.email || '',
+        phone: o.phone || '',
+        items: 'See order items',
+        method: o.method || '—',
+        reference: o.reference || '',      // ✅ NEW FIELD MAPPED
+        date: (o.created_at || '').slice(0, 10),
+        status: this.mapDbStatus(o.status),
+        notes: o.message || '',
+        history: [],
+      }));
+    } catch (err) {
+      console.error('Failed to load orders', err);
+      this.errorMsg = 'Could not load orders. Please try again.';
+      this.showToast('Failed to load orders', 'error');
+    } finally {
+      this.loading = false;
+    }
   }
-}
-
 
   async validateSession() {
     const email = localStorage.getItem('email');
@@ -111,10 +109,9 @@ async loadOrders() {
       this.router.navigate(['/login']);
     }
 
-    this.popup.info('Admin Session valid!'); // Remove later
+    this.popup.info('Admin Session valid!');
   }
 
-  // filtered + sorted
   get filteredOrders(): Order[] {
     let list = [...this.orders];
 
@@ -128,7 +125,8 @@ async loadOrders() {
         o.id.toLowerCase().includes(q) ||
         o.customerName.toLowerCase().includes(q) ||
         o.items.toLowerCase().includes(q) ||
-        (o.method || '').toLowerCase().includes(q)
+        (o.method || '').toLowerCase().includes(q) ||
+        (o.reference || '').toLowerCase().includes(q)      // ✅ allow searching by reference
       );
     }
 
@@ -140,7 +138,6 @@ async loadOrders() {
     return list;
   }
 
-  // status badge classes
   statusClass(s: OrderStatus) {
     return {
       badge: true,
@@ -150,7 +147,6 @@ async loadOrders() {
     };
   }
 
-  // toast
   showToast(msg: string, type: 'success' | 'error' = 'success') {
     clearTimeout(this.toastTimer);
     this.toastMsg = msg;
@@ -161,7 +157,6 @@ async loadOrders() {
     }, 2500);
   }
 
-  // row actions
   beginEdit(o: Order) {
     o._editing = true;
     o._pendingStatus = o.status;
@@ -188,14 +183,12 @@ async loadOrders() {
     o._pendingStatus = undefined;
   }
 
-  // modal
   selected: Order | null = null;
   openDetails(o: Order) { this.selected = o; }
   closeDetails() { this.selected = null; }
 
-  // export CSV – include Method + Notes
   downloadCSV() {
-    const header = ['ID','Customer','Email','Phone','Items','Method','Date','Status','Notes'];
+    const header = ['ID','Customer','Email','Phone','Items','Method','Reference','Date','Status','Notes'];
     const rows = this.filteredOrders.map(o => [
       o.id,
       o.customerName,
@@ -203,10 +196,12 @@ async loadOrders() {
       o.phone,
       o.items,
       o.method ?? '',
+      o.reference ?? '',       // ✅ included in CSV
       o.date,
       o.status,
       o.notes ?? ''
     ]);
+
     const csv = [header, ...rows].map(r =>
       r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')
     ).join('\n');
@@ -220,7 +215,6 @@ async loadOrders() {
     URL.revokeObjectURL(url);
   }
 
-  // navigation buttons
   goHome() {
     this.router.navigate(['/']);
   }
