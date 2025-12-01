@@ -38,7 +38,7 @@ const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
 
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY); 
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const PAYPAL_ENV = process.env.PAYPAL_ENV === "live" ? "live" : "sandbox";
 const PAYPAL_CLIENT_ID = requireEnv("PAYPAL_CLIENT_ID");
@@ -57,6 +57,30 @@ const feBaseUrl = () => {
 const toNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
 //  Product helpers 
+async function decrementInventory(orderId) {
+  const { data: items, error: itemErr } = await supabase
+    .from("OrderItems")
+    .select("product_id, qty")
+    .eq("order_id", orderId);
+
+  if (itemErr) throw itemErr;
+  if (!items || items.length === 0) return;
+
+  for (const it of items) {
+    if (!it.product_id || !it.qty) continue;
+
+    // decrement qty
+    const { error: updErr } = await supabase
+      .from("Products")
+      .update({
+        qty: supabase.rpc('decrement', { amount: it.qty })
+      })
+      .eq("id", it.product_id);
+
+    if (updErr) console.error("Inventory update failed:", updErr);
+  }
+}
+
 async function fetchProduct(productIdRaw) {
   const productId = String(productIdRaw || "").trim();
   if (!productId) throw new Error("Product not found: <empty id>");
@@ -84,18 +108,26 @@ async function buildStripeLineItems(items) {
   const rows = await Promise.all(
     (items || []).map(async (it) => {
       const p = await fetchProduct(it.id);
+
       return {
         quantity: Number(it.qty) || 1,
         price_data: {
           currency: "cad",
-          unit_amount: p.unit_amount,
-          product_data: { name: p.name },
-        },
+          unit_amount: p.unit_amount,  // integer cents
+          product_data: {
+            name: p.name,
+            metadata: {
+              product_id: p.id
+            }
+          }
+        }
       };
     })
   );
+
   return rows;
 }
+
 
 async function computeEtransfer(items) {
   let totalCents = 0;
@@ -107,7 +139,7 @@ async function computeEtransfer(items) {
     normalized.push({
       product_id: p.id,
       name: it.name || p.name,
-      price: p.unit_amount / 100, 
+      price: p.unit_amount / 100,
       qty,
     });
   }
@@ -146,7 +178,7 @@ app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), a
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    console.error("signature fail:", err?.message || err);
+    console.error("❌ Stripe signature fail:", err?.message || err);
     return res.status(400).send("bad signature");
   }
 
@@ -154,12 +186,16 @@ app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), a
     return res.sendStatus(200);
   }
 
+  console.log("🔥 Stripe checkout.session.completed received");
+
   try {
     const s = event.data.object;
+
+    /* -------------------- SAVE ORDER -------------------- */
     const order = {
-      draft_id: s?.metadata?.orderDraftId ?? s?.metadata?.draft_id ?? null,
-      email: s?.customer_details?.email ?? s?.customer_email ?? null,
-      name: s?.customer_details?.name ?? s?.metadata?.fullName ?? null,
+      draft_id: s?.metadata?.orderDraftId ?? null,
+      email: s?.customer_details?.email ?? null,
+      name: s?.customer_details?.name ?? null,
       amount_total: s?.amount_total ?? null,
       currency: s?.currency ?? null,
       status: "paid",
@@ -174,23 +210,81 @@ app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), a
       source: "stripe",
     };
 
-    if (!order.draft_id) return res.status(500).send("missing draft_id");
+    if (!order.draft_id) {
+      console.error("❌ Missing draft_id in Stripe metadata");
+      return res.status(500).send("missing draft_id");
+    }
 
-    const { error } = await supabase.from("Orders").upsert(order, { onConflict: "draft_id" });
-    if (error) {
-      console.error("Orders upsert failed:", error.message || error);
-      return res.status(500).send("db fail");
+    await supabase.from("Orders").upsert(order, { onConflict: "draft_id" });
+
+
+    /* -------------------- INSERT ORDER ITEMS -------------------- */
+    console.log("🔥 Fetching Stripe line items...");
+    const lineItems = await stripe.checkout.sessions.listLineItems(s.id);
+
+    const cartItems = JSON.parse(s.metadata.items || "[]");
+
+    for (const li of lineItems.data) {
+      const qty = li.quantity;
+      const name = li.description;
+
+      // Match back to YOUR cart
+      const matched = cartItems.find(ci => ci.name === name && Number(ci.qty) === Number(qty));
+
+      const productId = matched ? matched.id : null;
+
+      console.log(`→ Adding OrderItem: ${name} x${qty}, productId = ${productId}`);
+
+      const { error: itemErr } = await supabase.from("OrderItems").insert({
+        order_id: order.draft_id,
+        product_id: productId,
+        name,
+        price: li.price?.unit_amount ? li.price.unit_amount / 100 : 0,
+        qty
+      });
+
+      if (itemErr) console.error("❌ Stripe OrderItem insert error:", itemErr);
+    }
+
+
+    /* -------------------- UPDATE INVENTORY -------------------- */
+    console.log("🔥 Updating inventory for Stripe...");
+
+    const { data: orderItems, error: oiErr } = await supabase
+      .from("OrderItems")
+      .select("product_id, qty")
+      .eq("order_id", order.draft_id);
+
+    if (oiErr) {
+      console.error("❌ Could not fetch OrderItems for Stripe inventory:", oiErr);
+    } else {
+      for (const it of orderItems) {
+        if (!it.product_id) continue;
+
+        console.log(`   → Decreasing qty for product ${it.product_id} by ${it.qty}`);
+
+        const { error: decErr } = await supabase.rpc("decrement_product_qty", {
+          pid: it.product_id,
+          amount: it.qty
+        });
+
+        if (decErr) {
+          console.error(`❌ Inventory decrement failed for ${it.product_id}:`, decErr);
+        } else {
+          console.log(`✔ Inventory updated for ${it.product_id}`);
+        }
+      }
     }
 
     return res.sendStatus(200);
   } catch (err) {
-    console.error("webhook error:", err);
+    console.error("❌ Stripe webhook error:", err);
     return res.status(500).send("webhook error");
   }
 });
 
-
 app.use(bodyParser.json());
+
 
 /* ---------- Health ---------- */
 app.get("/", (_req, res) => res.send("Davend Email + Payments Backend Running ✔️"));
@@ -218,6 +312,7 @@ app.post(
           city: customer.city ?? "",
           postalCode: customer.postalCode ?? "",
           message: customer.message ?? "",
+          items: JSON.stringify(items),
         },
       });
 
@@ -256,6 +351,39 @@ app.post(
         city: customer.city || "",
         postal_code: customer.postalCode || "",
       });
+      /* ----- INVENTORY UPDATE FOR E-TRANSFER ----- */
+      console.log("🔥 updating inventory...");
+
+      for (const ni of normalizedItems) {
+        const productId = ni.product_id;
+        const qtyPurchased = Number(ni.qty);
+
+        console.log(`Updating inventory: product ${productId}, qty -${qtyPurchased}`);
+
+        // Fetch current product qty
+        const { data: prod, error: prodErr } = await supabase
+          .from("Products")
+          .select("qty")
+          .eq("id", productId)
+          .single();
+
+        if (prodErr) {
+          console.error("Error fetching product qty:", prodErr.message);
+          continue;
+        }
+
+        const newQty = Math.max(0, (prod.qty ?? 0) - qtyPurchased);
+
+        const { error: updErr } = await supabase
+          .from("Products")
+          .update({ qty: newQty })
+          .eq("id", productId);
+
+        if (updErr) {
+          console.error("Error updating inventory:", updErr.message);
+        }
+      }
+      console.log("🔥 inventory update finished");
 
       for (const ni of normalizedItems) {
         await insertItem({
@@ -372,11 +500,11 @@ app.post(
         itemsToInsert =
           ppItems.length > 0
             ? ppItems.map((i) => ({
-                productIdFromSku: i.sku || null,
-                name: i.name,
-                qty: Number(i.quantity || 1),
-                unitAmountFromGateway: toNum(i.unit_amount?.value),
-              }))
+              productIdFromSku: i.sku || null,
+              name: i.name,
+              qty: Number(i.quantity || 1),
+              unitAmountFromGateway: toNum(i.unit_amount?.value),
+            }))
             : [];
       } catch {
         itemsToInsert = [];
@@ -421,10 +549,42 @@ app.post(
           });
         }
       }
+      /* ---- INVENTORY UPDATE FOR PAYPAL ---- */
+      console.log("🔥 PayPal payment captured — updating inventory...");
+
+      try {
+        const { data: orderItems, error: oiErr } = await supabase
+          .from("OrderItems")
+          .select("product_id, qty")
+          .eq("order_id", orderDraftId);
+
+        if (oiErr) {
+          console.error("❌ Failed to fetch OrderItems for PayPal:", oiErr);
+        } else {
+          for (const it of orderItems) {
+            console.log(`   → Decreasing inventory: product ${it.product_id}, qty ${it.qty}`);
+
+            const { error: decErr } = await supabase.rpc("decrement_product_qty", {
+              pid: it.product_id,
+              amount: it.qty
+            });
+
+            if (decErr) {
+              console.error(`❌ Failed to decrement inventory for ${it.product_id}:`, decErr);
+            } else {
+              console.log(`✔ Inventory updated for product ${it.product_id}`);
+            }
+          }
+
+        }
+      } catch (e) {
+        console.error("❌ PayPal inventory update failed:", e);
+      }
 
       return res.json({ status: "success", order });
     } catch (err) {
       if (String(err?.message || "").startsWith("Product not found:")) {
+
         return res.status(404).send("Product not found");
       }
       console.error("❌ paypal capture failed:", err);
