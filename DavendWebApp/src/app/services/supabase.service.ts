@@ -360,7 +360,7 @@ export class SupabaseService {
     const { data, error } = await this.supabase
       .from('Orders')
       .select(
-        'draft_id, created_at, amount, amount_total, currency, status, method, name, email, phone, message'
+        'draft_id, created_at, amount, currency, status, method, full_name, email, phone, message'
       )
       .order('created_at', { ascending: false });
 
