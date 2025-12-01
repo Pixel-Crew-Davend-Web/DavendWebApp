@@ -193,73 +193,29 @@ app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), a
 
     /* -------------------- SAVE ORDER -------------------- */
     const order = {
-      draft_id: s?.metadata?.orderDraftId ?? null,
-      email: s?.customer_details?.email ?? null,
-      name: s?.customer_details?.name ?? null,
-      amount_total: s?.amount_total ?? null,
-      currency: s?.currency ?? null,
+      draft_id: s?.metadata?.orderDraftId ?? s?.metadata?.draft_id ?? null,
+
       status: "paid",
-      checkout_session_id: s?.id ?? null,
-      payment_intent_id: s?.payment_intent ?? null,
-      reference: s?.payment_intent ?? null,
-      address: s?.metadata?.address ?? null,
-      city: s?.metadata?.city ?? null,
-      postal_code: s?.metadata?.postalCode ?? null,
-      phone: s?.metadata?.phone ?? null,
-      message: s?.metadata?.message ?? null,
-      source: "stripe",
+      method: "stripe",
+
+      // Match field names used by PayPal + E-transfer
+      reference: s?.payment_intent ?? s?.id ?? null,
+      message: s?.metadata?.message ?? "",
+
+      amount: typeof s?.amount_total === "number" ? s.amount_total / 100 : null,
+      currency: s?.currency?.toLowerCase() ?? "cad",
+
+      full_name: s?.customer_details?.name ?? s?.metadata?.fullName ?? "",
+      email: s?.customer_details?.email ?? s?.customer_email ?? "",
+      phone: s?.metadata?.phone ?? "",
+
+      address: s?.metadata?.address ?? "",
+      city: s?.metadata?.city ?? "",
+      postal_code: s?.metadata?.postalCode ?? "",
     };
 
-    if (!order.draft_id) {
-      console.error("❌ Missing draft_id in Stripe metadata");
-      return res.status(500).send("missing draft_id");
-    }
 
-    await supabase.from("Orders").upsert(order, { onConflict: "draft_id" });
-
-
-    /* -------------------- INSERT ORDER ITEMS -------------------- */
-    console.log("🔥 Fetching Stripe line items...");
-    const lineItems = await stripe.checkout.sessions.listLineItems(s.id);
-
-    const cartItems = JSON.parse(s.metadata.items || "[]");
-
-    for (const li of lineItems.data) {
-      const qty = li.quantity;
-      const name = li.description;
-
-      // Match back to YOUR cart
-      const matched = cartItems.find(ci => ci.name === name && Number(ci.qty) === Number(qty));
-
-      const productId = matched ? matched.id : null;
-
-      console.log(`→ Adding OrderItem: ${name} x${qty}, productId = ${productId}`);
-
-      const { error: itemErr } = await supabase.from("OrderItems").insert({
-        order_id: order.draft_id,
-        product_id: productId,
-        name,
-        price: li.price?.unit_amount ? li.price.unit_amount / 100 : 0,
-        qty
-      });
-
-      if (itemErr) console.error("❌ Stripe OrderItem insert error:", itemErr);
-    }
-
-
-    /* -------------------- UPDATE INVENTORY -------------------- */
-    console.log("🔥 Updating inventory for Stripe...");
-
-    const { data: orderItems, error: oiErr } = await supabase
-      .from("OrderItems")
-      .select("product_id, qty")
-      .eq("order_id", order.draft_id);
-
-    if (oiErr) {
-      console.error("❌ Could not fetch OrderItems for Stripe inventory:", oiErr);
-    } else {
-      for (const it of orderItems) {
-        if (!it.product_id) continue;
+    if (!order.draft_id) return res.status(500).send("missing draft_id");
 
         console.log(`   → Decreasing qty for product ${it.product_id} by ${it.qty}`);
 
@@ -606,17 +562,26 @@ app.get(
           id: session.metadata?.orderDraftId || session.id,
           date: new Date(session.created * 1000).toISOString(),
           method: session.payment_method_types?.[0] || "card",
-          amount: (session.amount_total || 0) / 100,
-          reference: null,
+          amount:
+            typeof session.amount_total === "number"
+              ? session.amount_total / 100
+              : 0,
+
+          reference: session.payment_intent || session.id || null,
           message: session.metadata?.message || "",
+
           customer: {
-            fullName: session.metadata?.fullName || "",
+            fullName:
+              session.customer_details?.name ||
+              session.metadata?.fullName ||
+              "",
             email: session.customer_details?.email || "",
             phone: session.metadata?.phone || "",
             address: session.metadata?.address || "",
             city: session.metadata?.city || "",
             postalCode: session.metadata?.postalCode || "",
           },
+
         };
         return res.json({ session, order });
       } catch {
