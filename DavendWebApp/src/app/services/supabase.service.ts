@@ -362,6 +362,15 @@ export class SupabaseService {
     return response; // <-- return full { data, error }
   }
 
+  async getVariantByID(id: string) {
+  return this.supabase
+    .from('ProductVariants')
+    .select('*, Products(*)')   // fetch parent product for image + name
+    .eq('id', id)
+    .single();
+}
+
+
   async getAllProductsWithVariants() {
     const { data, error } = await this.supabase
       .from('Products')
