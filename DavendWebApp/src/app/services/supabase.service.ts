@@ -48,6 +48,11 @@ export interface DbOrderItem {
   subtotal?: number | null;
 }
 
+export interface DbOrderWithItems extends DbOrder {
+  itemsSummary?: string | null;
+}
+
+
 @Injectable({
   providedIn: 'root',
 })
@@ -357,7 +362,8 @@ export class SupabaseService {
   // Orders (simple helpers)
   // ------------------------
 
-  async fetchAllOrders(): Promise<DbOrder[]> {
+  async fetchAllOrders(): Promise<DbOrderWithItems[]> {
+    // 1) Load all orders
     const { data, error } = await this.supabase
       .from('Orders')
       .select(
@@ -373,8 +379,82 @@ export class SupabaseService {
       throw error;
     }
 
-    return (data ?? []) as DbOrder[];
+    const orders = (data ?? []) as DbOrder[];
+
+    // 2) Collect all draft IDs to fetch items for
+    const ids = orders
+      .map((o) => (o.draft_id || '').trim())
+      .filter((id) => !!id);
+
+    if (!ids.length) {
+      return orders; // no orders or no IDs
+    }
+
+    // 3) Fetch all related OrderItems in one query
+    const { data: items, error: itemsErr } = await this.supabase
+      .from('OrderItems')
+      .select('order_id, name, qty')
+      .in('order_id', ids);
+
+    if (itemsErr) {
+      console.error(
+        'Error fetching order items for admin orders',
+        itemsErr.message || itemsErr
+      );
+      // Fall back to orders without item summaries
+      return orders;
+    }
+
+    // 4) Group items by order_id and format labels like "2x Pepperoni Pizza"
+    const byOrder: Record<string, string[]> = {};
+
+    (items ?? []).forEach((it: any) => {
+      const orderId = (it.order_id || '').trim();
+      if (!orderId) return;
+
+      const qty =
+        typeof it.qty === 'number' && Number.isFinite(it.qty) && it.qty > 0
+          ? it.qty
+          : 1;
+      const name = (it.name || '').trim() || 'Item';
+
+      const label = `${qty}x ${name}`;
+      if (!byOrder[orderId]) byOrder[orderId] = [];
+      byOrder[orderId].push(label);
+    });
+
+    // 5) Attach "itemsSummary" to each order
+    return orders.map((o) => {
+      const key = (o.draft_id || '').trim();
+      const summary = (key && byOrder[key]) ? byOrder[key].join(', ') : '';
+
+      return {
+        ...o,
+        itemsSummary: summary || null,
+      };
+    });
   }
+
+    async updateOrderStatus(draftId: string, dbStatus: string): Promise<void> {
+    const id = (draftId || '').trim();
+    if (!id) {
+      throw new Error('Missing order draft_id for update');
+    }
+
+    const { error } = await this.supabase
+      .from('Orders')
+      .update({ status: dbStatus })
+      .eq('draft_id', id);
+
+    if (error) {
+      console.error(
+        'Error updating order status in Supabase',
+        error.message || error
+      );
+      throw error;
+    }
+  }
+
 
   async fetchOrderWithItems(
     draftId: string

@@ -13,7 +13,7 @@ interface Order {
   phone: string;
   items: string;
   method?: string;
-  reference?: string;     // ✅ NEW FIELD
+  reference?: string;
   date: string;
   status: OrderStatus;
   notes?: string;
@@ -63,6 +63,18 @@ export class AdminOrdersComponent implements OnInit {
     return 'Pending';
   }
 
+  private mapUiStatusToDb(status: OrderStatus): string {
+    switch (status) {
+      case 'Completed':
+        return 'paid';
+      case 'Cancelled':
+        return 'cancelled';
+      case 'Pending':
+      default:
+        return 'pending';
+    }
+  }
+
   async loadOrders() {
     this.loading = true;
     this.errorMsg = '';
@@ -70,18 +82,18 @@ export class AdminOrdersComponent implements OnInit {
     try {
       const data = await this.supabase.fetchAllOrders();
 
-      this.orders = (data || []).map((o: DbOrder) => ({
+      this.orders = (data || []).map((o: any) => ({
         id: o.draft_id,
         customerName: o.full_name || '',
         email: o.email || '',
         phone: o.phone || '',
-        items: 'See order items',
+        items: o.itemsSummary || 'No items found',
         method: o.method || '—',
-        reference: o.reference || '',      // ✅ NEW FIELD MAPPED
+        reference: o.reference || '',
         date: (o.created_at || '').slice(0, 10),
         status: this.mapDbStatus(o.status),
         notes: o.message || '',
-        history: [],
+        history: []
       }));
     } catch (err) {
       console.error('Failed to load orders', err);
@@ -126,7 +138,7 @@ export class AdminOrdersComponent implements OnInit {
         o.customerName.toLowerCase().includes(q) ||
         o.items.toLowerCase().includes(q) ||
         (o.method || '').toLowerCase().includes(q) ||
-        (o.reference || '').toLowerCase().includes(q)      // ✅ allow searching by reference
+        (o.reference || '').toLowerCase().includes(q)
       );
     }
 
@@ -167,20 +179,34 @@ export class AdminOrdersComponent implements OnInit {
     o._pendingStatus = undefined;
   }
 
-  saveEdit(o: Order) {
+  async saveEdit(o: Order) {
     if (!o._editing || o._pendingStatus === undefined) return;
+
     const old = o.status;
     const next = o._pendingStatus;
 
-    if (old !== next) {
+    if (old === next) {
+      o._editing = false;
+      o._pendingStatus = undefined;
+      return;
+    }
+
+    const dbStatus = this.mapUiStatusToDb(next);
+
+    try {
+      await this.supabase.updateOrderStatus(o.id, dbStatus);
+
       o.status = next;
       const timestamp = new Date().toLocaleString();
       o.history.push(`Status changed from ${old} to ${next} on ${timestamp}`);
       this.showToast(`Order ${o.id} updated to ${next}`, 'success');
+    } catch (err) {
+      console.error('Failed to update order status', err);
+      this.showToast('Failed to update order in database', 'error');
+    } finally {
+      o._editing = false;
+      o._pendingStatus = undefined;
     }
-
-    o._editing = false;
-    o._pendingStatus = undefined;
   }
 
   selected: Order | null = null;
@@ -196,7 +222,7 @@ export class AdminOrdersComponent implements OnInit {
       o.phone,
       o.items,
       o.method ?? '',
-      o.reference ?? '',       // ✅ included in CSV
+      o.reference ?? '',
       o.date,
       o.status,
       o.notes ?? ''
