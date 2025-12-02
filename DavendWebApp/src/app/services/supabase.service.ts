@@ -39,7 +39,6 @@ export interface DbOrder {
   message?: string | null;
 }
 
-
 export interface DbOrderItem {
   order_id?: string | null;
   product_id?: string | null;
@@ -354,24 +353,66 @@ export class SupabaseService {
     return data?.path || filename;
   }
 
+  async getVariantsByProduct(productId: string) {
+    const response = await this.supabase
+      .from('ProductVariants')
+      .select('*')
+      .eq('product_id', productId);
+
+    return response; // <-- return full { data, error }
+  }
+
+  async getAllProductsWithVariants() {
+    const { data, error } = await this.supabase
+      .from('Products')
+      .select('*, ProductVariants:ProductVariants(*)');
+    if (error) {
+      console.error('Error fetching products with variants:', error.message);
+      throw error;
+    }
+    return data || [];
+  }
+
+  async addVariant(variant: any) {
+    const { data, error } = await this.supabase
+      .from('ProductVariants')
+      .insert(variant);
+
+    if (error) {
+      console.error('ADD VARIANT ERROR:', error);
+    }
+
+    return { data, error };
+  }
+
+  async updateVariant(id: string, data: any) {
+    return this.supabase.from('ProductVariants').update(data).eq('id', id);
+  }
+
+  async deleteVariant(id: string) {
+    return this.supabase.from('ProductVariants').delete().eq('id', id);
+  }
+
   // ------------------------
   // Orders (simple helpers)
   // ------------------------
 
-async fetchAllOrders(): Promise<DbOrder[]> {
-  const { data, error } = await this.supabase
-    .from('Orders')
-    .select('*') // pull all columns, avoid schema mismatch issues
-    .order('created_at', { ascending: false });
+  async fetchAllOrders(): Promise<DbOrder[]> {
+    const { data, error } = await this.supabase
+      .from('Orders')
+      .select('*') // pull all columns, avoid schema mismatch issues
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching orders from Supabase', error.message || error);
-    throw error;
+    if (error) {
+      console.error(
+        'Error fetching orders from Supabase',
+        error.message || error
+      );
+      throw error;
+    }
+
+    return (data ?? []) as DbOrder[];
   }
-
-  return (data ?? []) as DbOrder[];
-}
-
 
   async fetchOrderWithItems(
     draftId: string
@@ -735,7 +776,6 @@ async fetchAllOrders(): Promise<DbOrder[]> {
     return Number.isFinite(a) ? a : 0;
   }
 
-
   private pickPrice(p: any): number {
     if (typeof p.price_cents === 'number' && Number.isFinite(p.price_cents))
       return p.price_cents / 100;
@@ -792,5 +832,4 @@ async fetchAllOrders(): Promise<DbOrder[]> {
     if (error) throw error;
     return filePath;
   }
-
 }
