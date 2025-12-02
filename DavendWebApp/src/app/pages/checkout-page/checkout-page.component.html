@@ -32,6 +32,10 @@
       </div>
     </div>
 
+    <div>
+      <button class="clear-cart-button" (click)="clearCart()">Clear Cart</button>
+    </div>
+
     <div class="subtotal" *ngIf="cartItems.length > 0">
       <span>Subtotal</span>
       <strong>${{ total.toFixed(2) }}</strong>

@@ -94,6 +94,20 @@
   transition: 0.2s ease;
 }
 
+.clear-cart-button {
+  padding: 6px 12px;
+  background: blue;
+  border: none;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.clear-cart-button:hover {
+  background: darkblue;
+}
+
 .remove-section button:hover {
   background: #c9302c;
 }

@@ -8,7 +8,9 @@
 
     <div class="nav-buttons">
       <button routerLink="/" class="btn btn-secondary">🏠 Home</button>
-      <button routerLink="/login" class="btn btn-secondaryT">🔐 Admin Dashboard</button>
+      <button routerLink="/login" class="btn btn-secondaryT">
+        🔐 Admin Dashboard
+      </button>
       <button (click)="logout()" class="btn btn-danger">🚪 Logout</button>
     </div>
   </header>
@@ -18,72 +20,110 @@
     <section class="card add-product">
       <div class="card-head">
         <h3>Add Product</h3>
-        <p class="muted">Create a new product and optionally attach an image or PDF spec.</p>
+        <p class="muted">
+          Create a new product and optionally attach an image or PDF spec.
+        </p>
       </div>
 
       <div class="form-grid">
-      <label class="field">
-        <span>Name</span>
-        <input type="text"
-          placeholder="e.g. 10mm Hex Bolt"
-          [(ngModel)]="newProduct.name"
-          (ngModelChange)="validateAdd()"
-          [class.invalid]="!!addErrors.name"
-        />
-        <small class="err" *ngIf="addErrors.name">{{ addErrors.name }}</small>
-      </label>
+        <label class="field">
+          <span>Name</span>
+          <input
+            type="text"
+            placeholder="e.g. 10mm Hex Bolt"
+            [(ngModel)]="newProduct.name"
+            (ngModelChange)="validateAdd()"
+            [class.invalid]="!!addErrors.name"
+          />
+          <small class="err" *ngIf="addErrors.name">{{ addErrors.name }}</small>
+        </label>
 
-      <label class="field">
-        <span>Price</span>
-        <input type="number"
-          placeholder="e.g. 24.99"
-          min="0.01" step="0.01" inputmode="decimal"
-          [(ngModel)]="newProduct.price"
-          (ngModelChange)="validateAdd()"
-          [class.invalid]="!!addErrors.price"
-        />
-        <small class="err" *ngIf="addErrors.price">{{ addErrors.price }}</small>
-      </label>
+        <label class="field">
+          <span>Price</span>
+          <input
+            type="number"
+            placeholder="e.g. 24.99"
+            min="0.01"
+            step="0.01"
+            inputmode="decimal"
+            [(ngModel)]="newProduct.price"
+            (ngModelChange)="validateAdd()"
+            [class.invalid]="!!addErrors.price"
+          />
+          <small class="err" *ngIf="addErrors.price">{{
+            addErrors.price
+          }}</small>
+        </label>
 
-      <label class="field">
-        <span>Quantity</span>
-        <input type="number"
-          placeholder="e.g. 100"
-          min="0" step="1" inputmode="numeric" 
-          [(ngModel)]="newProduct.qty"
-          (ngModelChange)="validateAdd()"
-          [class.invalid]="!!addErrors.qty"
-        />
-        <small class="err" *ngIf="addErrors.qty">{{ addErrors.qty }}</small>
-      </label>
+        <label class="field">
+          <span>Quantity</span>
+          <input
+            type="number"
+            placeholder="e.g. 100"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            [(ngModel)]="newProduct.qty"
+            (ngModelChange)="validateAdd()"
+            [class.invalid]="!!addErrors.qty"
+          />
+          <small class="err" *ngIf="addErrors.qty">{{ addErrors.qty }}</small>
+        </label>
 
-      <label class="field field-span2">
-        <span>Description <em class="muted">(optional)</em></span>
-        <input type="text" placeholder="Short description" [(ngModel)]="newProduct.description" />
-      </label>
+        <label class="field field-span2">
+          <span>Description <em class="muted">(optional)</em></span>
+          <input
+            type="text"
+            placeholder="Short description"
+            [(ngModel)]="newProduct.description"
+          />
+        </label>
 
-      <!-- file input unchanged -->
-      <div class="field field-span2">
-        <span>Image / PDF <em class="muted">(optional)</em></span>
-        <input class="file-input" type="file"
-          accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
-          (change)="handleImageUpload($event)" />
-        <p class="hint">Accepted: JPG/JPEG or PDF</p>
+        <!-- file input unchanged -->
+        <div class="field field-span2">
+          <span>Image / PDF <em class="muted">(optional)</em></span>
+          <input
+            class="file-input"
+            type="file"
+            accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
+            (change)="handleImageUpload($event)"
+          />
+          <p class="hint">Accepted: JPG/JPEG or PDF</p>
+        </div>
       </div>
-    </div>
 
       <!-- Image/PDF Preview + actions -->
       <div *ngIf="addPreviewUrl" class="preview-wrap">
         <div *ngIf="!addPreviewIsPdf">
-          <img [src]="addPreviewUrl" alt="Selected Image Preview" class="preview-img" />
+          <img
+            [src]="addPreviewUrl"
+            alt="Selected Image Preview"
+            class="preview-img"
+          />
         </div>
         <div *ngIf="addPreviewIsPdf" class="pdf-preview">
-          <embed [src]="addPreviewTrustedUrl" type="application/pdf" class="pdf-embed" />
+          <embed
+            [src]="addPreviewTrustedUrl"
+            type="application/pdf"
+            class="pdf-embed"
+          />
         </div>
 
         <div class="preview-actions">
-          <button type="button" class="btn btn-secondary" (click)="triggerAddReupload()">Choose different file</button>
-          <button type="button" class="btn btn-ghost" (click)="cancelAddImage()">Cancel image</button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="triggerAddReupload()"
+          >
+            Choose different file
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost"
+            (click)="cancelAddImage()"
+          >
+            Cancel image
+          </button>
         </div>
       </div>
 
@@ -93,8 +133,20 @@
           <strong>No image selected.</strong> Create product without an image?
         </div>
         <div class="callout-actions">
-          <button type="button" class="btn btn-primary" (click)="proceedWithoutImage()">Yes, continue</button>
-          <button type="button" class="btn btn-ghost" (click)="showAddImageWarning=false">Cancel</button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="proceedWithoutImage()"
+          >
+            Yes, continue
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost"
+            (click)="showAddImageWarning = false"
+          >
+            Cancel
+          </button>
         </div>
       </div>
 
@@ -104,11 +156,17 @@
         type="file"
         accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
         (change)="handleImageUpload($event)"
-        style="display:none"
+        style="display: none"
       />
 
       <div class="actions">
-        <button class="btn btn-primary" (click)="addProduct()" [disabled]="!addFormValid">Add Product</button>
+        <button
+          class="btn btn-primary"
+          (click)="addProduct()"
+          [disabled]="!addFormValid"
+        >
+          Add Product
+        </button>
       </div>
     </section>
 
@@ -116,13 +174,16 @@
     <section class="card">
       <div class="card-head">
         <h3>Products</h3>
-        <p class="muted" *ngIf="!products.length">No products yet. Add your first one above.</p>
+        <p class="muted" *ngIf="!products.length">
+          No products yet. Add your first one above.
+        </p>
       </div>
 
       <div class="table-wrap" *ngIf="products.length">
         <table class="data-table">
           <thead>
             <tr>
+              <th class="sticky">Variants</th>
               <th class="sticky">ID</th>
               <th class="sticky">Name</th>
               <th class="sticky">Description</th>
@@ -134,23 +195,160 @@
           </thead>
           <tbody>
             <tr *ngFor="let product of products">
-              <td><span class="badge">#{{ product.id }}</span></td>
+              <td>
+                <button
+                  class="btn btn-secondary"
+                  (click)="selectProduct(product)"
+                >
+                  Variants
+                </button>
+              </td>
+              <td>
+                <span class="badge">#{{ product.id }}</span>
+              </td>
               <td class="t-left">{{ product.name }}</td>
-              <td class="t-left ellipsize" title="{{ product.description }}">{{ product.description }}</td>
+              <td class="t-left ellipsize" title="{{ product.description }}">
+                {{ product.description }}
+              </td>
               <td>\${{ product.price }}</td>
               <td>{{ product.qty }}</td>
               <td>
-                <img [src]="getImageUrl(product.imageURL)" class="product-img" alt="product image" />
+                <img
+                  [src]="getImageUrl(product.imageURL)"
+                  class="product-img"
+                  alt="product image"
+                />
               </td>
               <td>
                 <div class="row-actions">
-                  <button (click)="editProduct(product)" class="btn btn-warning">Edit</button>
-                  <button (click)="deleteProduct(product.id)" class="btn btn-danger">Delete</button>
+                  <button
+                    (click)="editProduct(product)"
+                    class="btn btn-warning"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    (click)="deleteProduct(product.id)"
+                    class="btn btn-danger"
+                  >
+                    Delete
+                  </button>
                 </div>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+    </section>
+
+    <section *ngIf="selectedProductForVariant" class="card">
+      <h3>Variants for {{ selectedProductForVariant.name }}</h3>
+
+      <!-- Add Variant Form -->
+      <div class="form-grid">
+        <label class="field">
+          <span>Size</span>
+          <input type="text" [(ngModel)]="newVariant.size" />
+        </label>
+
+        <label class="field">
+          <span>Length</span>
+          <input type="text" [(ngModel)]="newVariant.length" />
+        </label>
+
+        <label class="field">
+          <span>Price</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            [(ngModel)]="newVariant.price"
+          />
+        </label>
+
+        <label class="field">
+          <span>Qty</span>
+          <input type="number" min="0" step="1" [(ngModel)]="newVariant.qty" />
+        </label>
+
+        <button class="btn btn-primary" (click)="addVariant()">
+          Add Variant
+        </button>
+      </div>
+
+      <!-- Existing Variants -->
+      <table class="data-table" *ngIf="variants.length">
+        <thead>
+          <tr>
+            <th>Size</th>
+            <th>Length</th>
+            <th>Price</th>
+            <th>Qty</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let v of variants">
+            <td>{{ v.size }}</td>
+            <td>{{ v.length_value }}</td>
+            <td>\${{ v.price }}</td>
+            <td>{{ v.qty }}</td>
+            <td>
+              <button (click)="editingVariant = v" class="btn btn-warning">
+                Edit
+              </button>
+              <button (click)="deleteVariant(v.id)" class="btn btn-danger">
+                Delete
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section *ngIf="editingVariant" class="card edit-variant">
+      <h3>
+        Edit Variant: {{ editingVariant.size }} ({{
+          editingVariant.length_value
+        }})
+      </h3>
+
+      <div class="form-grid">
+        <label class="field">
+          <span>Size</span>
+          <input type="text" [(ngModel)]="editingVariant.size" />
+        </label>
+
+        <label class="field">
+          <span>Length</span>
+          <input type="text" [(ngModel)]="editingVariant.length_value" />
+        </label>
+
+        <label class="field">
+          <span>Price</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            [(ngModel)]="editingVariant.price"
+          />
+        </label>
+
+        <label class="field">
+          <span>Qty</span>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            [(ngModel)]="editingVariant.qty"
+          />
+        </label>
+
+        <button class="btn btn-primary" (click)="saveVariant()">Save</button>
+        <button class="btn btn-ghost" (click)="editingVariant = null">
+          Cancel
+        </button>
       </div>
     </section>
 
@@ -162,31 +360,42 @@
       </div>
 
       <div class="form-grid">
-          <label class="field">
+        <label class="field">
           <span>Name</span>
-          <input type="text"
+          <input
+            type="text"
             [(ngModel)]="editingProduct.name"
             (ngModelChange)="validateEdit()"
             [class.invalid]="!!editErrors.name"
           />
-          <small class="err" *ngIf="editErrors.name">{{ editErrors.name }}</small>
+          <small class="err" *ngIf="editErrors.name">{{
+            editErrors.name
+          }}</small>
         </label>
 
         <label class="field">
           <span>Price</span>
-          <input type="number"
-            min="0.01" step="0.01" inputmode="decimal"
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            inputmode="decimal"
             [(ngModel)]="editingProduct.price"
             (ngModelChange)="validateEdit()"
             [class.invalid]="!!editErrors.price"
           />
-          <small class="err" *ngIf="editErrors.price">{{ editErrors.price }}</small>
+          <small class="err" *ngIf="editErrors.price">{{
+            editErrors.price
+          }}</small>
         </label>
 
         <label class="field">
           <span>Quantity</span>
-          <input type="number"
-            min="0" step="1" inputmode="numeric" 
+          <input
+            type="number"
+            min="0"
+            step="1"
+            inputmode="numeric"
             [(ngModel)]="editingProduct.qty"
             (ngModelChange)="validateEdit()"
             [class.invalid]="!!editErrors.qty"
@@ -201,9 +410,12 @@
 
         <div class="field field-span2">
           <span>New Image / PDF <em class="muted">(optional)</em></span>
-          <input class="file-input" type="file"
+          <input
+            class="file-input"
+            type="file"
             accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
-            (change)="handleEditImageUpload($event)" />
+            (change)="handleEditImageUpload($event)"
+          />
           <p class="hint">Leave blank to keep existing image.</p>
         </div>
       </div>
@@ -211,15 +423,35 @@
       <!-- Edit Preview -->
       <div *ngIf="editPreviewUrl" class="preview-wrap">
         <div *ngIf="!editPreviewIsPdf">
-          <img [src]="editPreviewUrl" alt="Selected image preview" class="preview-img" />
+          <img
+            [src]="editPreviewUrl"
+            alt="Selected image preview"
+            class="preview-img"
+          />
         </div>
         <div *ngIf="editPreviewIsPdf" class="pdf-preview">
-          <embed [src]="editPreviewTrustedUrl" type="application/pdf" class="pdf-embed" />
+          <embed
+            [src]="editPreviewTrustedUrl"
+            type="application/pdf"
+            class="pdf-embed"
+          />
         </div>
 
         <div class="preview-actions">
-          <button type="button" class="btn btn-secondary" (click)="triggerEditReupload()">Choose different file</button>
-          <button type="button" class="btn btn-ghost" (click)="cancelEditImage()">Cancel image</button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="triggerEditReupload()"
+          >
+            Choose different file
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost"
+            (click)="cancelEditImage()"
+          >
+            Cancel image
+          </button>
         </div>
       </div>
 
@@ -229,12 +461,20 @@
         type="file"
         accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
         (change)="handleEditImageUpload($event)"
-        style="display:none"
+        style="display: none"
       />
 
       <div class="actions row-actions">
-        <button class="btn btn-primary" (click)="saveEdit()" [disabled]="!editFormValid">Save</button>
-        <button class="btn btn-ghost" (click)="editingProduct = null">Cancel</button>
+        <button
+          class="btn btn-primary"
+          (click)="saveEdit()"
+          [disabled]="!editFormValid"
+        >
+          Save
+        </button>
+        <button class="btn btn-ghost" (click)="editingProduct = null">
+          Cancel
+        </button>
       </div>
     </section>
   </main>

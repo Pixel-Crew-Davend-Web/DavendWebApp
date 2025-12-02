@@ -5,11 +5,12 @@ import { AdminAuthService } from '../../services/admin-auth.service';
 import { PopupService } from '../../services/popup.service';
 import { Router } from '@angular/router';
 import { ConfirmService } from '../../services/confirm.service';
+import { SupabaseService } from '../../services/supabase.service';
 
 @Component({
   selector: 'app-manage-inventory',
   templateUrl: './manage-inventory.component.html',
-  styleUrls: ['./manage-inventory.component.css']
+  styleUrls: ['./manage-inventory.component.css'],
 })
 export class ManageInventoryComponent implements OnInit {
   readonly DEFAULT_IMAGE_KEY = 'defaults/product-placeholder.jpg';
@@ -33,27 +34,54 @@ export class ManageInventoryComponent implements OnInit {
   editPreviewIsPdf = false;
   editPreviewTrustedUrl: SafeResourceUrl | null = null;
 
+  variants: any[] = [];
+  selectedProductForVariant: any = null;
+
+  newVariant = {
+    size: '',
+    length: '',
+    price: null,
+    qty: null,
+    imageURL: null,
+  };
+
+  editingVariant: any = null;
+
   // Form validation error messages
   addErrors = { name: '', price: '', qty: '' };
   editErrors = { name: '', price: '', qty: '' };
 
   // Re-upload inputs
-  @ViewChild('addReuploadInput', { static: false }) addReuploadInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('editReuploadInput', { static: false }) editReuploadInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('addReuploadInput', { static: false })
+  addReuploadInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('editReuploadInput', { static: false })
+  editReuploadInput!: ElementRef<HTMLInputElement>;
 
   // Form validation
   get addFormValid(): boolean {
-    return !this.addErrors.name && !this.addErrors.price && !this.addErrors.qty 
-          && this.newProduct.name.trim().length > 0;
+    return (
+      !this.addErrors.name &&
+      !this.addErrors.price &&
+      !this.addErrors.qty &&
+      this.newProduct.name.trim().length > 0
+    );
   }
   get editFormValid(): boolean {
     if (!this.editingProduct) return false;
-    return !this.editErrors.name && !this.editErrors.price && !this.editErrors.qty 
-          && String(this.editingProduct.name ?? '').trim().length > 0;
+    return (
+      !this.editErrors.name &&
+      !this.editErrors.price &&
+      !this.editErrors.qty &&
+      String(this.editingProduct.name ?? '').trim().length > 0
+    );
   }
 
   private isEmpty(v: any): boolean {
-    return v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+    return (
+      v === null ||
+      v === undefined ||
+      (typeof v === 'string' && v.trim() === '')
+    );
   }
 
   // Validate fields on change
@@ -86,27 +114,31 @@ export class ManageInventoryComponent implements OnInit {
 
   // Call these on input changes
   validateAdd(): void {
-    this.addErrors.name  = this.validateName(this.newProduct.name);
+    this.addErrors.name = this.validateName(this.newProduct.name);
     this.addErrors.price = this.validatePrice(this.newProduct.price);
-    this.addErrors.qty   = this.validateQty(this.newProduct.qty);
+    this.addErrors.qty = this.validateQty(this.newProduct.qty);
   }
 
   validateEdit(): void {
     if (!this.editingProduct) return;
-    this.editErrors.name  = this.validateName(this.editingProduct.name);
+    this.editErrors.name = this.validateName(this.editingProduct.name);
     this.editErrors.price = this.validatePrice(this.editingProduct.price);
-    this.editErrors.qty   = this.validateQty(this.editingProduct.qty);
+    this.editErrors.qty = this.validateQty(this.editingProduct.qty);
   }
 
-  private readonly allowedTypes = new Set<string>(['image/jpeg', 'application/pdf']);
+  private readonly allowedTypes = new Set<string>([
+    'image/jpeg',
+    'application/pdf',
+  ]);
 
   constructor(
-    private productService: ProductService, 
-    private adminAuthService: AdminAuthService, 
-    private router: Router, 
-    private sanitizer: DomSanitizer, 
+    private productService: ProductService,
+    private adminAuthService: AdminAuthService,
+    private router: Router,
+    private sanitizer: DomSanitizer,
     private popup: PopupService,
-    private confirm: ConfirmService
+    private confirm: ConfirmService,
+    private supabaseService: SupabaseService
   ) {}
 
   async ngOnInit() {
@@ -123,7 +155,10 @@ export class ManageInventoryComponent implements OnInit {
     }
     const adminID = await this.adminAuthService.getAdminIDByEmail(adminEmail);
     const localToken = localStorage.getItem('adminToken');
-    const valid = await this.adminAuthService.isAdminTokenValid(adminID, localToken || undefined);
+    const valid = await this.adminAuthService.isAdminTokenValid(
+      adminID,
+      localToken || undefined
+    );
     if (!valid) {
       this.popup.error('Session expired. Please log in again.');
       this.adminAuthService.logoutAdmin();
@@ -137,14 +172,63 @@ export class ManageInventoryComponent implements OnInit {
     this.products = await this.productService.getProducts();
   }
 
+  async loadVariants(productId: string) {
+    const response = await this.supabaseService.getVariantsByProduct(productId);
+
+    if (response.error) {
+      console.error('Error loading variants:', response.error);
+      this.variants = [];
+      return;
+    }
+
+    this.variants = response.data || [];
+  }
+
   async editProduct(product: any) {
     this.editingProduct = { ...product }; // Clone product for editing
     this.validateEdit();
   }
-  
+
+  async addVariant() {
+    const variant = {
+      product_id: this.selectedProductForVariant.id,
+      size: this.newVariant.size,
+      length_value: this.newVariant.length,
+      price: this.newVariant.price,
+      qty: this.newVariant.qty,
+    };
+
+    await this.supabaseService.addVariant(variant);
+    this.loadVariants(this.selectedProductForVariant.id);
+    this.newVariant = {
+      size: '',
+      length: '',
+      price: null,
+      qty: null,
+      imageURL: null,
+    };
+  }
+
+  async saveVariant() {
+    const { error } = await this.supabaseService.updateVariant(
+      this.editingVariant.id,
+      {
+        size: this.editingVariant.size,
+        length_value: this.editingVariant.length,
+        price: this.editingVariant.price,
+        qty: this.editingVariant.qty,
+      }
+    );
+
+    if (!error) {
+      this.editingVariant = null;
+      this.loadVariants(this.selectedProductForVariant.id);
+    }
+  }
+
   getImageUrl(fileName: string): string {
     return `https://oitjgpsicvzplwsbmxyo.supabase.co/storage/v1/object/public/product-images/${fileName}`; // CHANGED URL TO oitjgpsicvzplwsbmxyo MIGHT NEED TO CHANGE OTHER FUNCTIONS
-  }  
+  }
 
   async deleteProduct(id: string) {
     // if (confirm('Are you sure you want to delete this product?')) {
@@ -157,7 +241,7 @@ export class ManageInventoryComponent implements OnInit {
       title: 'Delete product?',
       message: 'This action cannot be undone.',
       okText: 'Delete',
-      cancelText: 'Cancel'
+      cancelText: 'Cancel',
     });
 
     if (!ok) {
@@ -172,6 +256,28 @@ export class ManageInventoryComponent implements OnInit {
     } else {
       this.popup.info('Product deletion cancelled.');
     }
+  }
+
+  async deleteVariant(id: string) {
+    const ok = await this.confirm.confirm({
+      kind: 'danger',
+      title: 'Delete variant?',
+      message: 'This action cannot be undone.',
+      okText: 'Delete',
+      cancelText: 'Cancel',
+    });
+    if (ok) {
+      await this.supabaseService.deleteVariant(id);
+      this.popup.success('Variant deleted successfully.');
+      await this.loadVariants(this.selectedProductForVariant.id);
+    } else {
+      this.popup.info('Variant deletion cancelled.');
+    }
+  }
+
+  selectProduct(product: any) {
+    this.selectedProductForVariant = product;
+    this.loadVariants(product.id);
   }
 
   logout() {
@@ -201,7 +307,8 @@ export class ManageInventoryComponent implements OnInit {
     if (file.type === 'application/pdf') {
       this.addPreviewIsPdf = true;
       this.addPreviewUrl = objectUrl;
-      this.addPreviewTrustedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(objectUrl);
+      this.addPreviewTrustedUrl =
+        this.sanitizer.bypassSecurityTrustResourceUrl(objectUrl);
     } else {
       this.addPreviewIsPdf = false;
       this.addPreviewUrl = objectUrl; // image preview
@@ -250,7 +357,8 @@ export class ManageInventoryComponent implements OnInit {
     if (file.type === 'application/pdf') {
       this.editPreviewIsPdf = true;
       this.editPreviewUrl = objectUrl;
-      this.editPreviewTrustedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(objectUrl);
+      this.editPreviewTrustedUrl =
+        this.sanitizer.bypassSecurityTrustResourceUrl(objectUrl);
     } else {
       this.editPreviewIsPdf = false;
       this.editPreviewUrl = objectUrl;
@@ -279,7 +387,9 @@ export class ManageInventoryComponent implements OnInit {
   async addProduct() {
     this.validateAdd();
     if (!this.addFormValid) {
-      this.popup.error('Please fix the highlighted fields before adding the product.');
+      this.popup.error(
+        'Please fix the highlighted fields before adding the product.'
+      );
       return;
     }
     // if no image selected, show warning UI rather than hard-blocking
@@ -307,11 +417,14 @@ export class ManageInventoryComponent implements OnInit {
           this.popup.error('Invalid file type.');
           return;
         }
-        uploadedPath = await this.productService.uploadProductAsset(this.selectedAddFile);
+        uploadedPath = await this.productService.uploadProductAsset(
+          this.selectedAddFile
+        );
       }
 
       // Fall back to empty string if no image set (service expects string)
-      const finalImageUrl = uploadedPath ?? (this.newProduct?.imageURL || this.DEFAULT_IMAGE_KEY);
+      const finalImageUrl =
+        uploadedPath ?? (this.newProduct?.imageURL || this.DEFAULT_IMAGE_KEY);
 
       await this.productService.addProduct(
         this.newProduct.name.trim(),
@@ -323,23 +436,30 @@ export class ManageInventoryComponent implements OnInit {
 
       this.clearAddPreview();
       // reset form fields if needed...
-      this.newProduct = { name:'', description:'', price:0, qty:0, imageURL:'' };
+      this.newProduct = {
+        name: '',
+        description: '',
+        price: 0,
+        qty: 0,
+        imageURL: '',
+      };
       this.addErrors = { name: '', price: '', qty: '' };
 
       this.popup.success('Product added successfully.');
 
       await this.loadProducts();
-    } catch (e:any) {
+    } catch (e: any) {
       console.error(e);
       this.popup.error('Failed to add product.');
     }
   }
 
   async saveEdit() {
-
     this.validateEdit();
     if (!this.editFormValid) {
-      this.popup.error('Please fix the highlighted fields before saving changes.');
+      this.popup.error(
+        'Please fix the highlighted fields before saving changes.'
+      );
       return;
     }
 
@@ -351,11 +471,14 @@ export class ManageInventoryComponent implements OnInit {
           this.popup.error('Invalid file type.');
           return;
         }
-        uploadedPath = await this.productService.uploadProductAsset(this.selectedEditFile);
+        uploadedPath = await this.productService.uploadProductAsset(
+          this.selectedEditFile
+        );
       }
 
       const existing = (this.editingProduct?.imageURL ?? '').trim();
-      const finalImageUrl = uploadedPath ?? (existing || this.DEFAULT_IMAGE_KEY);
+      const finalImageUrl =
+        uploadedPath ?? (existing || this.DEFAULT_IMAGE_KEY);
 
       await this.productService.updateProduct(
         String(this.editingProduct.id),
@@ -372,7 +495,7 @@ export class ManageInventoryComponent implements OnInit {
       this.editingProduct = null;
       this.editErrors = { name: '', price: '', qty: '' };
       await this.loadProducts();
-    } catch (e:any) {
+    } catch (e: any) {
       console.error(e);
       this.popup.error('Failed to save changes.');
     }
