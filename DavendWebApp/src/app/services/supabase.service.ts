@@ -28,16 +28,16 @@ export interface DbOrder {
   draft_id: string;
   created_at: string;
   amount?: number | null;
+  amount_total?: number | null;
   currency?: string | null;
   status?: string | null;
   method?: string | null;
+  reference?: string | null;
   full_name?: string | null;
   email?: string | null;
   phone?: string | null;
   message?: string | null;
-  reference?: string | null;  
 }
-
 
 export interface DbOrderItem {
   order_id?: string | null;
@@ -358,6 +358,55 @@ export class SupabaseService {
     return data?.path || filename;
   }
 
+  async getVariantsByProduct(productId: string) {
+    const response = await this.supabase
+      .from('ProductVariants')
+      .select('*')
+      .eq('product_id', productId);
+
+    return response; // <-- return full { data, error }
+  }
+
+  async getVariantByID(id: string) {
+  return this.supabase
+    .from('ProductVariants')
+    .select('*, Products(*)')   // fetch parent product for image + name
+    .eq('id', id)
+    .single();
+}
+
+
+  async getAllProductsWithVariants() {
+    const { data, error } = await this.supabase
+      .from('Products')
+      .select('*, ProductVariants:ProductVariants(*)');
+    if (error) {
+      console.error('Error fetching products with variants:', error.message);
+      throw error;
+    }
+    return data || [];
+  }
+
+  async addVariant(variant: any) {
+    const { data, error } = await this.supabase
+      .from('ProductVariants')
+      .insert(variant);
+
+    if (error) {
+      console.error('ADD VARIANT ERROR:', error);
+    }
+
+    return { data, error };
+  }
+
+  async updateVariant(id: string, data: any) {
+    return this.supabase.from('ProductVariants').update(data).eq('id', id);
+  }
+
+  async deleteVariant(id: string) {
+    return this.supabase.from('ProductVariants').delete().eq('id', id);
+  }
+
   // ------------------------
   // Orders (simple helpers)
   // ------------------------
@@ -366,9 +415,7 @@ export class SupabaseService {
     // 1) Load all orders
     const { data, error } = await this.supabase
       .from('Orders')
-      .select(
-        'draft_id, created_at, amount, currency, status, method, full_name, email, phone, message, reference'
-      )
+      .select('*') // pull all columns, avoid schema mismatch issues
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -818,7 +865,6 @@ export class SupabaseService {
     return Number.isFinite(a) ? a : 0;
   }
 
-
   private pickPrice(p: any): number {
     if (typeof p.price_cents === 'number' && Number.isFinite(p.price_cents))
       return p.price_cents / 100;
@@ -875,5 +921,4 @@ export class SupabaseService {
     if (error) throw error;
     return filePath;
   }
-
 }

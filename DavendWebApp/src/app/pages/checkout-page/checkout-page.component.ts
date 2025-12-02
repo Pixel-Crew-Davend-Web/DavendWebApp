@@ -9,6 +9,7 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { PopupService } from '../../services/popup.service';
+import { SupabaseService } from '../../services/supabase.service';
 
 @Component({
   selector: 'app-checkout-page',
@@ -36,7 +37,7 @@ export class CheckoutPageComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private productService: ProductService,
-    private cartService: CartService,
+    private supabase: SupabaseService,
     private orderService: OrderService,
     private paymentService: PaymentService,
     private emailService: EmailService,
@@ -48,24 +49,50 @@ export class CheckoutPageComponent implements OnInit {
   async ngOnInit() {
     const localCart = JSON.parse(localStorage.getItem('cart') || '[]');
 
-    for (const item of localCart) {
-      try {
-        const product = await this.productService.getProductByID(item.id);
-        const fullProduct = {
-          id: item.id,
-          name: product.name,
-          description: product.description,
-          imageURL: product.imageURL,
-          price: product.price,
-          qty: item.qty,
-          totalPrice: product.price * item.qty,
-          removeQty: 1
-        };
-        this.cartItems.push(fullProduct);
-      } catch (error) {
-        console.error(`Failed to fetch product with ID ${item.id}:`, error);
-      }
+for (const item of localCart) {
+  try {
+    // 1. Try to load variant
+    const variantResp = await this.supabase.getVariantByID(item.id);
+
+    if (variantResp.data) {
+      const v = variantResp.data;
+      const p = v.Products; // parent product
+
+      const cartEntry = {
+        id: v.id,
+        name: `${p.name} (${v.size} - ${v.length_value})`,
+        description: p.description,
+        imageURL: p.imageURL,  // variant uses product image
+        price: v.price,
+        qty: item.qty,
+        totalPrice: v.price * item.qty,
+        removeQty: 1
+      };
+
+      this.cartItems.push(cartEntry);
+      continue; // go to next cart item
     }
+
+    // 2. If not a variant → fallback to product
+    const product = await this.productService.getProductByID(item.id);
+    const cartEntry = {
+      id: item.id,
+      name: product.name,
+      description: product.description,
+      imageURL: product.imageURL,
+      price: product.price,
+      qty: item.qty,
+      totalPrice: product.price * item.qty,
+      removeQty: 1
+    };
+
+    this.cartItems.push(cartEntry);
+
+  } catch (err) {
+    console.error(`Failed to fetch item with ID ${item.id}:`, err);
+  }
+}
+await this.validateCartStock();
     this.recalculateTotal();
   }
 
@@ -105,6 +132,64 @@ export class CheckoutPageComponent implements OnInit {
     localStorage.setItem('cart', JSON.stringify(updatedCart));
     this.popup.info('Cart updated.');
   }
+
+  clearCart() {
+    this.cartItems = [];
+    this.total = 0;
+    localStorage.removeItem('cart');
+    this.popup.info('Cart cleared.');
+  }
+
+  private async validateCartStock() {
+  const updatedCart: any[] = [];
+  const validItems: any[] = [];
+
+  // Check each cart item
+  for (const item of this.cartItems) {
+    try {
+      // 1. Try to load as a variant
+      const variantResp = await this.supabase.getVariantByID(item.id);
+
+      if (variantResp.data) {
+        const v = variantResp.data;
+
+        // If NO STOCK → skip (auto-remove)
+        if (item.qty > v.qty || v.qty <= 0) {
+          this.popup.error(`Variant ${item.id} removed from cart due to insufficient stock`);
+          continue;
+        }
+
+        // Valid → keep it
+        updatedCart.push({ id: item.id, qty: item.qty });
+        validItems.push(item);
+        continue;
+      }
+
+      // 2. If not a variant → try loading as product
+      const product = await this.productService.getProductByID(item.id);
+
+      if (item.qty > product.qty || product.qty <= 0) {
+        this.popup.error(`Product ${item.name} removed from cart due to insufficient stock`);
+        continue;
+      }
+
+      updatedCart.push({ id: item.id, qty: item.qty });
+      validItems.push(item);
+
+    } catch (e) {
+      console.error(`Could not validate stock for ${item.id}:`, e);
+      // Remove item if lookup fails entirely
+    }
+  }
+
+  // Update component + localStorage
+  this.cartItems = validItems;
+  localStorage.setItem('cart', JSON.stringify(updatedCart));
+
+  // Recalculate totals
+  this.recalculateTotal();
+}
+
 
   async payNow() {
     if (this.checkoutForm.invalid) {

@@ -69,17 +69,18 @@ export class TrackOrderComponent {
       const created = order.created_at || '';
       const status = this.mapDbStatus(order.status);
 
-      this.result = {
-        id: order.draft_id,
-        customerName: order.full_name || '',
-        email: order.email || '',
-        phone: order.phone || '',
-        items: itemsText,
-        date: created ? created.slice(0, 10) : '',
-        status,
-        notes: order.message || '',
-        lastUpdated: created ? new Date(created).toLocaleString() : undefined,
-      };
+this.result = {
+  id: order.draft_id,
+  customerName: order.full_name || '',   
+  email: order.email || '',
+  phone: order.phone || '',
+  items: itemsText,
+  date: created ? created.slice(0, 10) : '',
+  status,
+  notes: order.message || '',
+  lastUpdated: created ? new Date(created).toLocaleString() : undefined,
+};
+
     } catch (err) {
       console.error('Failed to load order', err);
       this.notFound = true;

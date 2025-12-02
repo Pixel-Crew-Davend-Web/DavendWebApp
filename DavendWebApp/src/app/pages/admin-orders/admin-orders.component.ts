@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AdminAuthService } from '../../services/admin-auth.service';
 import { PopupService } from '../../services/popup.service';
-import { SupabaseService, DbOrder } from '../../services/supabase.service';
+import { SupabaseService } from '../../services/supabase.service';
 
 type OrderStatus = 'Pending' | 'Completed' | 'Cancelled';
 
@@ -25,7 +25,7 @@ interface Order {
 @Component({
   selector: 'app-admin-orders',
   templateUrl: './admin-orders.component.html',
-  styleUrls: ['./admin-orders.component.css']
+  styleUrls: ['./admin-orders.component.css'],
 })
 export class AdminOrdersComponent implements OnInit {
   constructor(
@@ -55,11 +55,9 @@ export class AdminOrdersComponent implements OnInit {
 
   private mapDbStatus(status: string | null | undefined): OrderStatus {
     const s = (status || '').toLowerCase();
-
     if (s.startsWith('pend')) return 'Pending';
     if (s.startsWith('comp') || s === 'paid') return 'Completed';
     if (s.startsWith('cancel')) return 'Cancelled';
-
     return 'Pending';
   }
 
@@ -81,7 +79,6 @@ export class AdminOrdersComponent implements OnInit {
 
     try {
       const data = await this.supabase.fetchAllOrders();
-
       this.orders = (data || []).map((o: any) => ({
         id: o.draft_id,
         customerName: o.full_name || '',
@@ -93,11 +90,11 @@ export class AdminOrdersComponent implements OnInit {
         date: (o.created_at || '').slice(0, 10),
         status: this.mapDbStatus(o.status),
         notes: o.message || '',
-        history: []
+        history: [],
       }));
     } catch (err) {
       console.error('Failed to load orders', err);
-      this.errorMsg = 'Could not load orders. Please try again.';
+      this.errorMsg = 'Could not load orders.';
       this.showToast('Failed to load orders', 'error');
     } finally {
       this.loading = false;
@@ -137,8 +134,10 @@ export class AdminOrdersComponent implements OnInit {
         o.id.toLowerCase().includes(q) ||
         o.customerName.toLowerCase().includes(q) ||
         o.items.toLowerCase().includes(q) ||
+        o.email.toLowerCase().includes(q) ||
         (o.method || '').toLowerCase().includes(q) ||
-        (o.reference || '').toLowerCase().includes(q)
+        (o.reference || '').toLowerCase().includes(q) ||
+        (o.notes || '').toLowerCase().includes(q)
       );
     }
 
@@ -155,7 +154,7 @@ export class AdminOrdersComponent implements OnInit {
       badge: true,
       pending: s === 'Pending',
       completed: s === 'Completed',
-      cancelled: s === 'Cancelled'
+      cancelled: s === 'Cancelled',
     };
   }
 
@@ -195,10 +194,11 @@ export class AdminOrdersComponent implements OnInit {
 
     try {
       await this.supabase.updateOrderStatus(o.id, dbStatus);
-
       o.status = next;
+
       const timestamp = new Date().toLocaleString();
       o.history.push(`Status changed from ${old} to ${next} on ${timestamp}`);
+
       this.showToast(`Order ${o.id} updated to ${next}`, 'success');
     } catch (err) {
       console.error('Failed to update order status', err);
@@ -210,11 +210,18 @@ export class AdminOrdersComponent implements OnInit {
   }
 
   selected: Order | null = null;
-  openDetails(o: Order) { this.selected = o; }
-  closeDetails() { this.selected = null; }
+
+  openDetails(o: Order) {
+    this.selected = o;
+  }
+
+  closeDetails() {
+    this.selected = null;
+  }
 
   downloadCSV() {
-    const header = ['ID','Customer','Email','Phone','Items','Method','Reference','Date','Status','Notes'];
+    const header = ['ID', 'Customer', 'Email', 'Phone', 'Items', 'Method', 'Reference', 'Date', 'Status', 'Notes'];
+
     const rows = this.filteredOrders.map(o => [
       o.id,
       o.customerName,
@@ -228,16 +235,18 @@ export class AdminOrdersComponent implements OnInit {
       o.notes ?? ''
     ]);
 
-    const csv = [header, ...rows].map(r =>
-      r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')
-    ).join('\n');
+    const csv = [header, ...rows]
+      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
+
     const a = document.createElement('a');
     a.href = url;
-    a.download = `orders_${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `orders_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
+
     URL.revokeObjectURL(url);
   }
 

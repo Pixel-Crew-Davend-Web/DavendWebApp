@@ -23,7 +23,7 @@
           </div>
         </section>
 
-        <a class="apply-btn" routerLink="/service-request">Apply for Service</a>
+        <a class="apply-btn" (click)="goToServiceRequest(s.title)">Apply for Service</a>
 
         <div class="section-divider"></div>
       </ng-container>
@@ -41,7 +41,7 @@
         <p>{{ featuredService.description }}</p>
 
         <p>Need a quote or consultation? Tap below to submit a request.</p>
-        <a class="apply-btn" routerLink="/service-request">Apply for Service</a>
+        <a class="apply-btn" (click)="goToServiceRequest(featuredService.title)">Apply for Service</a>
       </div>
     </div>
 

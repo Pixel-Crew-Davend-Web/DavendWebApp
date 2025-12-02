@@ -1,125 +1,163 @@
-<div class="orders-container">
-  <div class="orders-header">
-    <h2>Manage Customer Orders</h2>
-
-    <div class="controls">
-      <input
-        type="text"
-        [(ngModel)]="searchTerm"
-        placeholder="Search by ID, customer, or item..."
-      />
-
-      <select [(ngModel)]="filterStatus">
-        <option value="All">All Statuses</option>
-        <option value="Pending">Pending</option>
-        <option value="Completed">Completed</option>
-        <option value="Cancelled">Cancelled</option>
-      </select>
-
-      <button (click)="sortNewestFirst = !sortNewestFirst">
-        Sort: {{ sortNewestFirst ? 'Newest → Oldest' : 'Oldest → Newest' }}
-      </button>
-
-      <button class="export" (click)="downloadCSV()">Export CSV</button>
-      <button class="home" (click)="goHome()">Home</button>
-      <button class="logout" (click)="logout()">Logout</button>
+<div class="inv-shell">
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo-dot"></span>
+      <h1>Manage Orders</h1>
     </div>
-  </div>
 
-  <table class="orders-table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Customer</th>
-        <th>Items</th>
-        <th>Method</th>
-        <th>Reference</th>
-        <th>Date</th>
-        <th>Status</th>
-        <th>Notes</th>
-        <th>Actions</th>
-        <th>History</th>
-      </tr>
-    </thead>
+    <div class="nav-buttons">
+      <button routerLink="/" class="btn btn-secondary">🏠 Home</button>
+      <button routerLink="/login" class="btn btn-secondaryT">🔐 Admin Dashboard</button>
+      <button (click)="logout()" class="btn btn-danger">🚪 Logout</button>
+    </div>
+  </header>
 
-    <tbody>
-      <tr *ngFor="let o of filteredOrders">
-        <td>{{ o.id }}</td>
+  <main class="content">
 
-        <td>
-          <div class="cust-name">{{ o.customerName }}</div>
-          <div class="cust-meta">{{ o.email }} • {{ o.phone }}</div>
-        </td>
+    <!-- Filters / Search -->
+    <section class="card">
+      <div class="card-head">
+        <h3>Order Filters</h3>
+      </div>
 
-        <td>{{ o.items }}</td>
-        <td>{{ o.method || '—' }}</td>
-        <td>{{ o.reference || '—' }}</td>
-        <td>{{ o.date }}</td>
+      <div class="form-grid">
+        <label class="field field-span2">
+          <span>Search</span>
+          <input type="text"
+                 [(ngModel)]="searchTerm"
+                 placeholder="Search by ID, customer, or item..." />
+        </label>
 
-        <td>
-          <span [ngClass]="statusClass(o.status)">
-            {{ o.status }}
-          </span>
-        </td>
+        <label class="field">
+          <span>Status</span>
+          <select [(ngModel)]="filterStatus">
+            <option value="All">All Statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="Completed">Completed</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </label>
 
-        <td class="notes">
-          {{ o.notes || '—' }}
-        </td>
- 
-        <td class="actions">
-          <button class="view" (click)="openDetails(o)">View</button>
-          <button class="edit" (click)="beginEdit(o)" *ngIf="!o._editing">
-            Edit
+        <label class="field">
+          <span>Sort</span>
+          <button class="btn btn-secondary"
+                  (click)="sortNewestFirst = !sortNewestFirst">
+            {{ sortNewestFirst ? 'Newest → Oldest' : 'Oldest → Newest' }}
           </button>
+        </label>
 
-          <div *ngIf="o._editing" class="edit-controls">
-            <select [(ngModel)]="o._pendingStatus">
-              <option value="Pending">Pending</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
+        <button class="btn btn-primary" (click)="downloadCSV()">
+          Export CSV
+        </button>
+      </div>
+    </section>
 
-            <button class="save" (click)="saveEdit(o)">Save</button>
-            <button class="cancel" (click)="cancelEdit(o)">Cancel</button>
-          </div>
-        </td>
+    <!-- Orders Table -->
+    <section class="card">
+      <div class="card-head">
+        <h3>Orders</h3>
+        <p class="muted" *ngIf="!filteredOrders.length">No orders found.</p>
+      </div>
 
-        <td class="history">
-          <div *ngIf="o.history.length; else noHist">
-            <div *ngFor="let h of o.history">• {{ h }}</div>
-          </div>
+      <div class="table-wrap" *ngIf="filteredOrders.length">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="sticky">ID</th>
+              <th class="sticky">Customer</th>
+              <th class="sticky">Items</th>
+              <th class="sticky">Method</th>
+              <th class="sticky">Date</th>
+              <th class="sticky">Status</th>
 
-          <ng-template #noHist>• No changes yet</ng-template>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+              <!-- NEW: Reference column header -->
+              <th class="sticky">Reference</th>
 
-  <!-- Details Modal -->
-  <div class="modal-backdrop" *ngIf="selected">
-    <div class="modal">
-      <div class="modal-header">
+              <th class="sticky">Actions</th>
+              <th class="sticky">History</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let o of filteredOrders">
+              <td><span class="badge">#{{ o.id }}</span></td>
+
+              <td class="t-left">
+                <div>{{ o.customerName }}</div>
+                <div class="muted">{{ o.email }} • {{ o.phone }}</div>
+              </td>
+
+              <td>{{ o.items }}</td>
+              <td>{{ o.method || '—' }}</td>
+              <td>{{ o.date }}</td>
+
+              <td>
+                <span [ngClass]="statusClass(o.status)">{{ o.status }}</span>
+              </td>
+
+              <!-- NEW: Reference number (only when Pending) -->
+              <td>
+                <ng-container *ngIf="o.status === 'Pending'; else blankRef">
+                  <span class="ref-pill">{{ o.reference || '—' }}</span>
+                </ng-container>
+
+                <ng-template #blankRef>
+                  —
+                </ng-template>
+              </td>
+
+              <td class="row-actions">
+                <button class="btn btn-warning" (click)="openDetails(o)">View</button>
+                <button class="btn btn-primary" *ngIf="!o._editing" (click)="beginEdit(o)">Edit</button>
+
+                <div *ngIf="o._editing" class="row-actions">
+                  <select [(ngModel)]="o._pendingStatus">
+                    <option value="Pending">Pending</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                  <button class="btn btn-primary" (click)="saveEdit(o)">Save</button>
+                  <button class="btn btn-ghost" (click)="cancelEdit(o)">Cancel</button>
+                </div>
+              </td>
+
+              <td class="history">
+                <ng-container *ngIf="o.history.length; else noHist">
+                  <div *ngFor="let h of o.history">• {{ h }}</div>
+                </ng-container>
+
+                <ng-template #noHist>• No changes yet</ng-template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Modal -->
+    <div class="card modal" *ngIf="selected">
+      <div class="card-head">
         <h3>Order Details – {{ selected.id }}</h3>
       </div>
 
-      <div class="modal-body">
-        <p><strong>Customer:</strong> {{ selected.customerName }}</p>
-        <p><strong>Email:</strong> {{ selected.email }}</p>
-        <p><strong>Phone:</strong> {{ selected.phone }}</p>
-        <p><strong>Items:</strong> {{ selected.items }}</p>
-        <p><strong>Method:</strong> {{ selected.method || '—' }}</p>
+      <p><strong>Customer:</strong> {{ selected.customerName }}</p>
+      <p><strong>Email:</strong> {{ selected.email }}</p>
+      <p><strong>Phone:</strong> {{ selected.phone }}</p>
+      <p><strong>Items:</strong> {{ selected.items }}</p>
+      <p><strong>Method:</strong> {{ selected.method || '—' }}</p>
+      <p><strong>Date:</strong> {{ selected.date }}</p>
+      <p><strong>Status:</strong> {{ selected.status }}</p>
 
-        <!-- Added reference inside modal -->
-        <p><strong>Reference:</strong> {{ selected.reference || '—' }}</p>
+      <!-- NEW: Show reference inside modal too -->
+      <p><strong>Reference:</strong> {{ selected.reference || '—' }}</p>
 
-        <p><strong>Date:</strong> {{ selected.date }}</p>
-        <p><strong>Status:</strong> {{ selected.status }}</p>
-        <p><strong>Notes:</strong> {{ selected.notes || '—' }}</p>
-      </div>
+      <p><strong>Notes:</strong> {{ selected.notes || '—' }}</p>
 
-      <div class="modal-footer">
-        <button (click)="closeDetails()">Close</button>
+      <div class="actions">
+        <button class="btn btn-ghost" (click)="closeDetails()">Close</button>
       </div>
     </div>
-  </div>
+
+  </main>
 </div>

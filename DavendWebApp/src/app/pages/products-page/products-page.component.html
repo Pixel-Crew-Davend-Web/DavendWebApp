@@ -10,11 +10,21 @@
   <!-- Filters -->
   <div class="filter-bar card">
     <div class="search-bar">
-      <input type="text" placeholder="Search products..." [(ngModel)]="searchTerm" (input)="filterProducts()" />
+      <input
+        type="text"
+        placeholder="Search products..."
+        [(ngModel)]="searchTerm"
+        (input)="filterProducts()"
+      />
     </div>
 
-    <select [(ngModel)]="selectedFilter" (change)="onFilterChange()" class="filter-dropdown" required
-      [ngClass]="{ 'placeholder': !selectedFilter }">
+    <select
+      [(ngModel)]="selectedFilter"
+      (change)="onFilterChange()"
+      class="filter-dropdown"
+      required
+      [ngClass]="{ placeholder: !selectedFilter }"
+    >
       <option [ngValue]="''" disabled>Sort By</option>
       <option value="price-asc">Price: Low to High</option>
       <option value="price-desc">Price: High to Low</option>
@@ -37,32 +47,82 @@
         <p class="product-desc">{{ product.description }}</p>
 
         <div class="price-row">
-          <span class="price">${{ product.price }}</span>
+          <span class="price"
+            >${{ product.selectedVariant?.price || product.price }}</span
+          >
+        </div>
+
+        <!-- Variant selector -->
+        <div class="variant-row" *ngIf="product.ProductVariants?.length">
+          <label>Choose size:</label>
+          <select [(ngModel)]="product.selectedVariant">
+            <option *ngFor="let v of product.ProductVariants" [ngValue]="v">
+              {{ v.size }} - {{ v.length_value }}
+            </option>
+          </select>
         </div>
 
         <div class="qty-row">
-          <input type="number" [(ngModel)]="product.inputQty" (ngModelChange)="product.inputQty = toNum($event)"
-            placeholder="Qty" min="1" class="qty-input">
-          <button class="btn primary-cta"
-            [disabled]="toNum(product.inputQty) <= 0 || toNum(product.inputQty) > toNum(product.qty)"
-            (click)="addProduct(product.id, product.inputQty)">
+          <input
+            type="number"
+            [(ngModel)]="product.inputQty"
+            (ngModelChange)="product.inputQty = toNum($event)"
+            placeholder="Qty"
+            min="1"
+            class="qty-input"
+          />
+          <button
+            class="btn primary-cta"
+            [disabled]="
+              toNum(product.inputQty) <= 0 ||
+              (product.selectedVariant
+                ? toNum(product.inputQty) > toNum(product.selectedVariant.qty)
+                : toNum(product.inputQty) > toNum(product.qty))
+            "
+            (click)="
+              addProduct(
+                product.selectedVariant?.id || product.id,
+                product.inputQty
+              )
+            "
+          >
             Add to Cart
           </button>
         </div>
+      </div>
 
-        <div class="msg-row">
-          <div *ngIf="toNum(product.inputQty) > toNum(product.qty)" class="msg error">Not enough stock available.</div>
-          <div *ngIf="toNum(product.inputQty) <= 0" class="msg error">Please enter a valid quantity.</div>
-          <div *ngIf="toNum(product.inputQty) > 0 && toNum(product.inputQty) <= toNum(product.qty)" class="msg ok">
-            Available for purchase.
-          </div>
+      <div class="msg-row">
+        <div
+          *ngIf="
+            product.selectedVariant &&
+            toNum(product.inputQty) > product.selectedVariant.qty
+          "
+          class="msg error"
+        >
+          Not enough stock available.
+        </div>
+
+        <div
+          *ngIf="
+            !product.selectedVariant && toNum(product.inputQty) > product.qty
+          "
+          class="msg error"
+        >
+          Not enough stock available.
+        </div>
+
+        <div *ngIf="toNum(product.inputQty) <= 0" class="msg error">
+          Please enter a valid quantity.
         </div>
       </div>
     </article>
   </div>
 
-  <div *ngIf="!filteredProducts?.length" class="empty-state card">
-    <p>No products match your filters. Try clearing the search or changing the sort.</p>
+  <div *ngIf="!filteredProducts.length" class="empty-state card">
+    <p>
+      No products match your filters. Try clearing the search or changing the
+      sort.
+    </p>
   </div>
 </div>
 

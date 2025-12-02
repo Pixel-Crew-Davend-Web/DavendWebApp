@@ -10,20 +10,13 @@ import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
+console.log("🔥 Server starting…");
+
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const upload = multer({ storage: multer.memoryStorage() });
-
-app.use(
-  cors({
-    origin: ["http://localhost:4200", "https://davendwebapp.onrender.com"],
-    methods: ["GET", "POST"],
-    credentials: true,
-  })
-);
-
 const requireEnv = (name, validate) => {
   const value = process.env[name];
   if (!value || (validate && !validate(value))) {
@@ -56,7 +49,15 @@ const feBaseUrl = () => {
 };
 const toNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
-//  Product helpers 
+app.use(
+  cors({
+    origin: ["http://localhost:4200", "https://davendwebapp.onrender.com"],
+    methods: ["GET", "POST"],
+    credentials: true,
+  })
+);
+
+//helper
 async function decrementInventory(orderId) {
   const { data: items, error: itemErr } = await supabase
     .from("OrderItems")
@@ -69,15 +70,14 @@ async function decrementInventory(orderId) {
   for (const it of items) {
     if (!it.product_id || !it.qty) continue;
 
-    // decrement qty
-    const { error: updErr } = await supabase
-      .from("Products")
-      .update({
-        qty: supabase.rpc('decrement', { amount: it.qty })
-      })
-      .eq("id", it.product_id);
+    const { error: decErr } = await supabase.rpc(
+      "decrement_product_qty",
+      { pid: it.product_id, amount: it.qty }
+    );
 
-    if (updErr) console.error("Inventory update failed:", updErr);
+    if (decErr) {
+      console.error(`Inventory update failed for ${it.product_id}:`, decErr);
+    }
   }
 }
 
@@ -104,6 +104,23 @@ async function fetchProduct(productIdRaw) {
   return { id: data.id, name: data.name ?? `Item ${productId}`, unit_amount };
 }
 
+async function computeEtransfer(items) {
+  let totalCents = 0;
+  const normalized = [];
+  for (const it of items || []) {
+    const p = await fetchProduct(it.id);
+    const qty = Number(it.qty) || 1;
+    totalCents += p.unit_amount * qty;
+    normalized.push({
+      product_id: p.id,
+      name: it.name || p.name,
+      price: p.unit_amount / 100,
+      qty,
+    });
+  }
+  return { totalCents, normalizedItems: normalized };
+}
+
 async function buildStripeLineItems(items) {
   const rows = await Promise.all(
     (items || []).map(async (it) => {
@@ -128,24 +145,6 @@ async function buildStripeLineItems(items) {
   return rows;
 }
 
-
-async function computeEtransfer(items) {
-  let totalCents = 0;
-  const normalized = [];
-  for (const it of items || []) {
-    const p = await fetchProduct(it.id);
-    const qty = Number(it.qty) || 1;
-    totalCents += p.unit_amount * qty;
-    normalized.push({
-      product_id: p.id,
-      name: it.name || p.name,
-      price: p.unit_amount / 100,
-      qty,
-    });
-  }
-  return { totalCents, normalizedItems: normalized };
-}
-
 async function insertOrder(order) {
   const { data, error } = await supabase.from("Orders").insert(order).select().single();
   if (error) throw error;
@@ -163,16 +162,13 @@ async function insertItem(item) {
   if (error) throw error;
 }
 
-// ---- Async wrapper & error middleware
-const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-
-app.use((req, res, next) => next());
 /* ---------- Stripe webhook (raw body) ---------- */
 app.post(
   "/api/webhooks/stripe",
   bodyParser.raw({ type: "application/json" }),
   async (req, res) => {
     let event;
+
     try {
       event = stripe.webhooks.constructEvent(
         req.body,
@@ -185,6 +181,7 @@ app.post(
     }
 
     if (event.type !== "checkout.session.completed") {
+      // Ignore other events
       return res.sendStatus(200);
     }
 
@@ -193,9 +190,16 @@ app.post(
     try {
       const s = event.data.object;
 
-      /* -------------------- SAVE ORDER -------------------- */
+      /* -------------------- SAVE / UPSERT ORDER -------------------- */
+      const orderDraftId = s?.metadata?.orderDraftId ?? s?.metadata?.draft_id ?? null;
+
+      if (!orderDraftId) {
+        console.error("❌ Missing draft_id in Stripe metadata");
+        return res.status(500).send("missing draft_id");
+      }
+
       const order = {
-        draft_id: s?.metadata?.orderDraftId ?? s?.metadata?.draft_id ?? null,
+        draft_id: orderDraftId,
         status: "paid",
         method: "stripe",
         reference: s?.payment_intent ?? s?.id ?? null,
@@ -211,41 +215,74 @@ app.post(
         postal_code: s?.metadata?.postalCode ?? "",
       };
 
-      if (!order.draft_id) {
-        console.error("❌ Missing draft_id in Stripe metadata");
-        return res.status(500).send("missing draft_id");
-      }
-
+      console.log("💾 Upserting Stripe order:", orderDraftId);
       await supabase.from("Orders").upsert(order, {
         onConflict: "draft_id",
       });
 
-      /* -------------------- INSERT ORDER ITEMS -------------------- */
-      console.log("🔥 Fetching Stripe line items...");
-      const lineItems = await stripe.checkout.sessions.listLineItems(s.id);
-      const cartItems = JSON.parse(s.metadata.items || "[]");
+      /* -------------------- REBUILD CART FROM METADATA -------------------- */
+      let rawItems = [];
+      try {
+        rawItems = JSON.parse(s?.metadata?.items || "[]");
+      } catch (e) {
+        console.error("❌ Failed to parse Stripe metadata.items:", e);
+        rawItems = [];
+      }
 
-      for (const li of lineItems.data) {
-        const qty = li.quantity;
-        const name = li.description;
-
-        const matched = cartItems.find(
-          (ci) => ci.name === name && Number(ci.qty) === Number(qty)
+      if (!Array.isArray(rawItems) || rawItems.length === 0) {
+        console.warn("⚠ No cart items in Stripe metadata for draft:", orderDraftId);
+      } else {
+        console.log(
+          `🧾 Rebuilding ${rawItems.length} Stripe items from metadata for order ${orderDraftId}`
         );
+      }
 
-        const productId = matched ? matched.id : null;
+      // Normalize items & prices using same helper as e-transfer
+      let normalizedItems = [];
+      try {
+        const { normalizedItems: norm } = await computeEtransfer(rawItems);
+        normalizedItems = norm;
+      } catch (e) {
+        console.error("❌ computeEtransfer failed for Stripe:", e);
+        normalizedItems = [];
+      }
 
-        console.log(`→ Adding OrderItem: ${name} x${qty}, productId = ${productId}`);
+      /* -------------------- UPSERT ORDER ITEMS -------------------- */
+      try {
+        // Idempotency: clear any existing items for this order first
+        const { error: delErr } = await supabase
+          .from("OrderItems")
+          .delete()
+          .eq("order_id", orderDraftId);
 
-        const { error: itemErr } = await supabase.from("OrderItems").insert({
-          order_id: order.draft_id,
-          product_id: productId,
-          name,
-          price: li.price?.unit_amount ? li.price.unit_amount / 100 : 0,
-          qty,
-        });
+        if (delErr) {
+          console.error(
+            "❌ Failed to clear existing OrderItems for Stripe:",
+            delErr
+          );
+        }
 
-        if (itemErr) console.error("❌ Stripe OrderItem insert error:", itemErr);
+        for (const ni of normalizedItems) {
+          const row = {
+            order_id: orderDraftId,
+            product_id: ni.product_id, // guaranteed from fetchProduct()
+            name: ni.name,
+            price: ni.price,
+            qty: ni.qty,
+          };
+
+          console.log("→ Inserting Stripe OrderItem:", row);
+
+          const { error: itemErr } = await supabase
+            .from("OrderItems")
+            .insert(row);
+
+          if (itemErr) {
+            console.error("❌ Stripe OrderItem insert error:", itemErr);
+          }
+        }
+      } catch (e) {
+        console.error("❌ Stripe OrderItems block failed:", e);
       }
 
       /* -------------------- UPDATE INVENTORY -------------------- */
@@ -254,15 +291,20 @@ app.post(
       const { data: orderItems, error: oiErr } = await supabase
         .from("OrderItems")
         .select("product_id, qty")
-        .eq("order_id", order.draft_id);
+        .eq("order_id", orderDraftId);
 
       if (oiErr) {
-        console.error("❌ Could not fetch OrderItems for Stripe inventory:", oiErr);
+        console.error(
+          "❌ Could not fetch OrderItems for Stripe inventory:",
+          oiErr
+        );
       } else {
         for (const it of orderItems) {
           if (!it.product_id) continue;
 
-          console.log(`   → Decreasing qty for product ${it.product_id} by ${it.qty}`);
+          console.log(
+            `   → Decreasing qty for product ${it.product_id} by ${it.qty}`
+          );
 
           const { error: decErr } = await supabase.rpc(
             "decrement_product_qty",
@@ -290,11 +332,22 @@ app.post(
     }
   }
 );
+console.log("🔥 Stripe webhook mounted");
+
 
 app.use(bodyParser.json());
 
+
+
+// ---- Async wrapper & error middleware
+const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
 /* ---------- Health ---------- */
-app.get("/", (_req, res) => res.send("Davend Email + Payments Backend Running ✔️"));
+app.get("/", (_req, res) =>
+  res.send("Davend Email + Payments Backend Running ✔️")
+);
+
+console.log("🚦 Stripe + PayPal + Etransfer routes loading");
 
 /* ---------- Stripe (card) ---------- */
 app.post(
@@ -319,7 +372,7 @@ app.post(
           city: customer.city ?? "",
           postalCode: customer.postalCode ?? "",
           message: customer.message ?? "",
-          items: JSON.stringify(items),
+          items: JSON.stringify(items), // 👈 critical for webhook reconstruction
         },
       });
 
@@ -339,8 +392,17 @@ app.post(
   "/api/payments/etransfer-order",
   asyncHandler(async (req, res) => {
     try {
-      const { items = [], customer = {}, orderDraftId = "", reference: refIn } = req.body;
-      const reference = (refIn && String(refIn).trim()) || `ET-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+      const {
+        items = [],
+        customer = {},
+        orderDraftId = "",
+        reference: refIn,
+      } = req.body;
+
+      const reference =
+        (refIn && String(refIn).trim()) ||
+        `ET-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
       const { totalCents, normalizedItems } = await computeEtransfer(items);
 
       const order = await insertOrder({
@@ -358,16 +420,18 @@ app.post(
         city: customer.city || "",
         postal_code: customer.postalCode || "",
       });
-      /* ----- INVENTORY UPDATE FOR E-TRANSFER ----- */
+
+      // Inventory update (your previous working logic)
       console.log("🔥 updating inventory...");
 
       for (const ni of normalizedItems) {
         const productId = ni.product_id;
         const qtyPurchased = Number(ni.qty);
 
-        console.log(`Updating inventory: product ${productId}, qty -${qtyPurchased}`);
+        console.log(
+          `Updating inventory: product ${productId}, qty -${qtyPurchased}`
+        );
 
-        // Fetch current product qty
         const { data: prod, error: prodErr } = await supabase
           .from("Products")
           .select("qty")
@@ -390,6 +454,7 @@ app.post(
           console.error("Error updating inventory:", updErr.message);
         }
       }
+
       console.log("🔥 inventory update finished");
 
       for (const ni of normalizedItems) {
@@ -445,7 +510,12 @@ app.post(
             amount: {
               currency_code: "CAD",
               value: total.toFixed(2),
-              breakdown: { item_total: { currency_code: "CAD", value: total.toFixed(2) } },
+              breakdown: {
+                item_total: {
+                  currency_code: "CAD",
+                  value: total.toFixed(2),
+                },
+              },
             },
             items: ppItems,
           },
@@ -479,7 +549,9 @@ app.post(
       const pu = capRes.result?.purchase_units?.[0];
       const cap = pu?.payments?.captures?.[0];
       const capturedAmount = toNum(cap?.amount?.value);
-      const capturedCurrency = String(cap?.amount?.currency_code || "CAD").toLowerCase();
+      const capturedCurrency = String(
+        cap?.amount?.currency_code || "CAD"
+      ).toLowerCase();
 
       // Upsert order
       const order = await upsertOrder({
@@ -498,7 +570,7 @@ app.post(
         postal_code: customer.postalCode || "",
       });
 
-      // Build items from PayPal 
+      // Build items from PayPal
       let itemsToInsert = [];
       try {
         const getReq = new paypal.orders.OrdersGetRequest(orderID);
@@ -507,15 +579,16 @@ app.post(
         itemsToInsert =
           ppItems.length > 0
             ? ppItems.map((i) => ({
-              productIdFromSku: i.sku || null,
-              name: i.name,
-              qty: Number(i.quantity || 1),
-              unitAmountFromGateway: toNum(i.unit_amount?.value),
-            }))
+                productIdFromSku: i.sku || null,
+                name: i.name,
+                qty: Number(i.quantity || 1),
+                unitAmountFromGateway: toNum(i.unit_amount?.value),
+              }))
             : [];
       } catch {
         itemsToInsert = [];
       }
+
       if (itemsToInsert.length === 0 && Array.isArray(items) && items.length > 0) {
         itemsToInsert = items.map((it) => ({
           productIdFromSku: it.id || null,
@@ -526,7 +599,11 @@ app.post(
       }
 
       // Skip if items already there
-      const { data: existing } = await supabase.from("OrderItems").select("id").eq("order_id", orderDraftId).limit(1);
+      const { data: existing } = await supabase
+        .from("OrderItems")
+        .select("id")
+        .eq("order_id", orderDraftId)
+        .limit(1);
       const hasItems = Array.isArray(existing) && existing.length > 0;
 
       if (!hasItems && itemsToInsert.length > 0) {
@@ -543,7 +620,10 @@ app.post(
             price = p.unit_amount / 100;
           } else {
             name = it.name || "Unnamed item";
-            price = typeof it.unitAmountFromGateway === "number" ? it.unitAmountFromGateway : 0;
+            price =
+              typeof it.unitAmountFromGateway === "number"
+                ? it.unitAmountFromGateway
+                : 0;
             productId = "adhoc";
           }
 
@@ -556,6 +636,7 @@ app.post(
           });
         }
       }
+
       /* ---- INVENTORY UPDATE FOR PAYPAL ---- */
       console.log("🔥 PayPal payment captured — updating inventory...");
 
@@ -569,20 +650,29 @@ app.post(
           console.error("❌ Failed to fetch OrderItems for PayPal:", oiErr);
         } else {
           for (const it of orderItems) {
-            console.log(`   → Decreasing inventory: product ${it.product_id}, qty ${it.qty}`);
+            console.log(
+              `   → Decreasing inventory: product ${it.product_id}, qty ${it.qty}`
+            );
 
-            const { error: decErr } = await supabase.rpc("decrement_product_qty", {
-              pid: it.product_id,
-              amount: it.qty
-            });
+            const { error: decErr } = await supabase.rpc(
+              "decrement_product_qty",
+              {
+                pid: it.product_id,
+                amount: it.qty,
+              }
+            );
 
             if (decErr) {
-              console.error(`❌ Failed to decrement inventory for ${it.product_id}:`, decErr);
+              console.error(
+                `❌ Failed to decrement inventory for ${it.product_id}:`,
+                decErr
+              );
             } else {
-              console.log(`✔ Inventory updated for product ${it.product_id}`);
+              console.log(
+                `✔ Inventory updated for product ${it.product_id}`
+              );
             }
           }
-
         }
       } catch (e) {
         console.error("❌ PayPal inventory update failed:", e);
@@ -591,7 +681,6 @@ app.post(
       return res.json({ status: "success", order });
     } catch (err) {
       if (String(err?.message || "").startsWith("Product not found:")) {
-
         return res.status(404).send("Product not found");
       }
       console.error("❌ paypal capture failed:", err);
@@ -617,10 +706,8 @@ app.get(
             typeof session.amount_total === "number"
               ? session.amount_total / 100
               : 0,
-
           reference: session.payment_intent || session.id || null,
           message: session.metadata?.message || "",
-
           customer: {
             fullName:
               session.customer_details?.name ||
@@ -632,10 +719,10 @@ app.get(
             city: session.metadata?.city || "",
             postalCode: session.metadata?.postalCode || "",
           },
-
         };
         return res.json({ session, order });
       } catch {
+        // fall through to DB lookup
       }
     }
 
@@ -647,7 +734,9 @@ app.get(
       .eq("draft_id", id)
       .single();
 
-    if (!o) return res.status(404).json({ error: "Session or order not found" });
+    if (!o) {
+      return res.status(404).json({ error: "Session or order not found" });
+    }
 
     const order = {
       id: o.draft_id,
@@ -683,7 +772,9 @@ app.get(
       .eq("draft_id", draftId)
       .single();
 
-    if (!order) return res.status(404).json({ error: "Order not found" });
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
 
     const { data: items, error: itemsErr } = await supabase
       .from("OrderItems")
@@ -691,14 +782,23 @@ app.get(
       .eq("order_id", draftId)
       .order("name", { ascending: true });
 
-    if (itemsErr) return res.status(500).json({ error: "Failed to fetch items" });
+    if (itemsErr) {
+      return res.status(500).json({ error: "Failed to fetch items" });
+    }
 
-    const subtotal = (items || []).reduce((acc, it) => acc + toNum(it.price) * toNum(it.qty), 0);
+    const subtotal = (items || []).reduce(
+      (acc, it) => acc + toNum(it.price) * toNum(it.qty),
+      0
+    );
 
     res.json({
       order,
       items: items || [],
-      totals: { subtotal: Number(subtotal), total: Number(order.amount), currency: (order.currency || "cad").toUpperCase() },
+      totals: {
+        subtotal: Number(subtotal),
+        total: Number(order.amount),
+        currency: (order.currency || "cad").toUpperCase(),
+      },
     });
   })
 );
@@ -716,7 +816,9 @@ app.get(
       .eq("draft_id", draftId)
       .single();
 
-    if (!o) return res.status(404).json({ error: "Order not found" });
+    if (!o) {
+      return res.status(404).json({ error: "Order not found" });
+    }
 
     const order = {
       id: o.draft_id,
@@ -892,6 +994,8 @@ app.use((err, _req, res, _next) => {
   console.error("❌ Unhandled error:", err?.raw?.message || err?.message || err);
   res.status(500).json({ error: err?.raw?.message || err?.message || "Internal server error" });
 });
+
+console.log("🚀 Booting server now...");
 
 /* ---------- Start ---------- */
 app.listen(PORT, () => console.log(`✅ Server running at http://localhost:${PORT}`));

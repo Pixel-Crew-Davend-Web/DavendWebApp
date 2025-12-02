@@ -1,13 +1,14 @@
 import { Component } from '@angular/core';
 import { ProductService } from '../../services/product.service';
 import { PopupService } from '../../services/popup.service';
+import { SupabaseService } from '../../services/supabase.service';
 
 type SortKey = '' | 'price-asc' | 'price-desc' | 'qty';
 
 @Component({
   selector: 'app-products-page',
   templateUrl: './products-page.component.html',
-  styleUrls: ['./products-page.component.css'] 
+  styleUrls: ['./products-page.component.css'],
 })
 export class ProductsPageComponent {
   products: any[] = [];
@@ -16,11 +17,22 @@ export class ProductsPageComponent {
   productQty = 1;
   selectedFilter: SortKey = '';
 
-  constructor(private productService: ProductService, private popup: PopupService) {}
+  constructor(
+    private productService: ProductService,
+    private popup: PopupService,
+    private supabase: SupabaseService
+  ) {}
 
   async ngOnInit() {
-    this.products = await this.productService.getProducts();
-    this.filteredProducts = this.products.map(p => ({ ...p, inputQty: 1 }));
+    const data = await this.supabase.getAllProductsWithVariants();
+    this.products = data;
+    this.products.forEach((p) => {
+      if (p.ProductVariants?.length) {
+        p.selectedVariant = p.ProductVariants[0];
+      }
+    });
+
+    this.filteredProducts = this.products.map((p) => ({ ...p, inputQty: 1 }));
   }
 
   toNum(v: any): number {
@@ -31,7 +43,7 @@ export class ProductsPageComponent {
   private applyAllFilters(): void {
     const term = (this.searchTerm || '').trim().toLowerCase();
 
-    let list = this.products.filter(p => {
+    let list = this.products.filter((p) => {
       const name = String(p.name || '').toLowerCase();
       const desc = String(p.description || '').toLowerCase();
       return name.includes(term) || desc.includes(term);
@@ -39,23 +51,39 @@ export class ProductsPageComponent {
 
     switch (this.selectedFilter) {
       case 'price-asc':
-        list = list.sort((a, b) => this.toNum(a.price) - this.toNum(b.price) || String(a.name).localeCompare(String(b.name)));
+        list = list.sort(
+          (a, b) =>
+            this.toNum(a.price) - this.toNum(b.price) ||
+            String(a.name).localeCompare(String(b.name))
+        );
         break;
       case 'price-desc':
-        list = list.sort((a, b) => this.toNum(b.price) - this.toNum(a.price) || String(a.name).localeCompare(String(b.name)));
+        list = list.sort(
+          (a, b) =>
+            this.toNum(b.price) - this.toNum(a.price) ||
+            String(a.name).localeCompare(String(b.name))
+        );
         break;
       case 'qty':
-        list = list.sort((a, b) => this.toNum(b.qty) - this.toNum(a.qty) || String(a.name).localeCompare(String(b.name)));
+        list = list.sort(
+          (a, b) =>
+            this.toNum(b.qty) - this.toNum(a.qty) ||
+            String(a.name).localeCompare(String(b.name))
+        );
         break;
       case '':
-        list = list.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        list = list.sort((a, b) =>
+          String(a.name).localeCompare(String(b.name))
+        );
         break;
     }
 
-    const oldById = new Map(this.filteredProducts.map(p => [p.id, this.toNum(p.inputQty) || 1]));
-    this.filteredProducts = list.map(p => ({
+    const oldById = new Map(
+      this.filteredProducts.map((p) => [p.id, this.toNum(p.inputQty) || 1])
+    );
+    this.filteredProducts = list.map((p) => ({
       ...p,
-      inputQty: oldById.get(p.id) ?? 1
+      inputQty: oldById.get(p.id) ?? 1,
     }));
   }
 
@@ -76,14 +104,13 @@ export class ProductsPageComponent {
     if (!q || q <= 0) return;
 
     try {
-
       const cart = JSON.parse(localStorage.getItem('cart') || '[]');
       const idx = cart.findIndex((item: { id: string }) => item.id === id);
       if (idx > -1) cart[idx].qty += q;
       else cart.push({ id, qty: q });
 
       localStorage.setItem('cart', JSON.stringify(cart));
-      const card = this.filteredProducts.find(p => p.id === id);
+      const card = this.filteredProducts.find((p) => p.id === id);
       if (card) card.inputQty = 1;
 
       this.popup.success('Product added to cart!');
