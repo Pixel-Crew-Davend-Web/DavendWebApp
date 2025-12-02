@@ -2,32 +2,108 @@
 
 <div class="page-wrapper">
 
-    <!-- ======================== -->
-    <!-- Full-Width Banner Image with Text Overlay -->
-    <!-- ======================== -->
-    <div class="full-width-image">
-      <img src="assets/bolts.png" alt="Banner Image">
-  
-      <!-- Bottom Overlay Banner with Text -->
-      <div class="image-overlay-bottom">
-        <div class="overlay-text">
-          Punch and die button manufacturing. Surface and centerless grinding.
-        </div>
+  <!-- ======================== -->
+  <!-- HERO IMAGE -->
+  <!-- ======================== -->
+  <div class="full-width-image">
+    <img src="assets/bolts.png" alt="Banner Image">
+
+    <div class="image-overlay-bottom">
+      <div class="overlay-text">
+        Precision Punch & Die Manufacturing • CNC Machining • Surface & Centerless Grinding
       </div>
     </div>
-  
-    <!-- ======================== -->
-    <!-- Company Mission Statement Section -->
-    <!-- ======================== -->
-    <div class="experience-section">
-      <p>
-        With over 30 years of experience, At Davend Punch and Die Co. Ltd. is dedicated to
-        meeting demands of our customers. We specialize in high-precision punch and die
-        bushing/die button manufacturing and offer expert grinding services, including surface
-        grinding and centerless grinding. We provide top-tier solutions to meet your manufacturing needs.
-      </p>
+  </div>
+
+  <!-- ======================== -->
+  <!-- INTRO SECTION -->
+  <!-- ======================== -->
+  <section class="experience-section">
+    <p>
+      At Davend Punch and Die Co. Ltd., we bring over 30 years of craftsmanship and 
+      precision engineering to the manufacturing industry. Our team specializes in high-accuracy 
+      tooling, advanced CNC machining, and premium grinding services crafted to meet the 
+      demanding needs of modern production environments.
+    </p>
+  </section>
+
+  <!-- ======================== -->
+  <!-- SERVICES SUMMARY SECTION -->
+  <!-- ======================== -->
+<section class="services-overview" *ngIf="services.length > 0">
+  <h2>Our Core Capabilities</h2>
+
+  <div class="services-grid">
+
+    <!-- Featured Service (optional) -->
+    <div class="service-card featured" *ngIf="featuredService">
+      <h3>{{ featuredService.title }}</h3>
+      <p>{{ featuredService.description }}</p>
+
     </div>
-  
+
+    <!-- Loop all regular services -->
+    <div class="service-card" *ngFor="let s of services">
+      <h3>{{ s.title }}</h3>
+      <p>{{ s.description }}</p>
+
+    </div>
+
+  </div>
+</section>
+
+
+  <!-- ======================== -->
+  <!-- WHY CHOOSE US SECTION -->
+  <!-- ======================== -->
+  <section class="why-us">
+    <h2>Why Manufacturers Choose Us</h2>
+
+    <ul>
+      <li><strong>Over 30 Years of Industry Expertise</strong> in precision tooling and grinding</li>
+      <li><strong>Tight-Tolerance Capabilities</strong> for complex and mission-critical components</li>
+      <li><strong>Advanced CNC & Grinding Equipment</strong> for consistent, repeatable results</li>
+      <li><strong>Fast Turnaround</strong> with high-accuracy QA processes</li>
+      <li><strong>Custom Solutions</strong> tailored to unique manufacturing needs</li>
+    </ul>
+  </section>
+
+  <!-- ======================== -->
+  <!-- Find Us -->
+  <!-- ======================== -->
+<section class="location-section">
+  <h2>Find Us</h2>
+
+  <p class="address">
+    6720 Davand Dr Unit #9<br>
+    Mississauga, ON L5T 2K7
+  </p>
+
+  <div class="map-wrapper">
+    <iframe
+      width="100%"
+      height="350"
+      frameborder="0"
+      style="border-radius: 8px;"
+      src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2883.222909805224!2d-79.68709922382664!3d43.64310205394869!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x882b41cd9c2663c9%3A0x44b6f6cd41b480b0!2s6720%20Davand%20Dr%20%239%2C%20Mississauga%2C%20ON%20L5T%202K7!5e0!3m2!1sen!2sca!4v1701468123456"
+      allowfullscreen>
+    </iframe>
+  </div>
+</section>
+
+  <!-- ======================== -->
+  <!-- CALL-TO-ACTION SECTION -->
+  <!-- ======================== -->
+  <section class="cta">
+    <h2>Partner With Us</h2>
+    <p>
+      Whether you're looking for custom tooling, high-precision machining,
+      or grinding services you can trust, our team is ready to support your project.
+    </p>
+
+    <a routerLink="/contact" class="cta-button">Request a Quote</a>
+  </section>
+
 </div>
 
 <app-footer></app-footer>

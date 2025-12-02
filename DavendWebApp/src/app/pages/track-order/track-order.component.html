@@ -1,3 +1,4 @@
+<app-header></app-header>
 <section class="track-order-container">
     <div class="track-order-card">
       <h1>Track Your Order</h1>
@@ -40,7 +41,7 @@
         </div>
   
         <!-- ✅ Last Updated -->
-        <p class="last-updated" *ngIf="result?.lastUpdated">
+        <p class="last-updated" *ngIf="result.lastUpdated">
           Last Updated: {{ result.lastUpdated }}
         </p>
       </div>
@@ -61,4 +62,4 @@
       </div>
     </div>
   </section>
-  
+  <app-footer></app-footer>
