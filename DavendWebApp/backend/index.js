@@ -15,15 +15,6 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const upload = multer({ storage: multer.memoryStorage() });
-
-app.use(
-  cors({
-    origin: ["http://localhost:4200", "https://davendwebapp.onrender.com"],
-    methods: ["GET", "POST"],
-    credentials: true,
-  })
-);
-
 const requireEnv = (name, validate) => {
   const value = process.env[name];
   if (!value || (validate && !validate(value))) {
@@ -56,7 +47,32 @@ const feBaseUrl = () => {
 };
 const toNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
-//  Product helpers 
+app.use(
+  cors({
+    origin: ["http://localhost:4200", "https://davendwebapp.onrender.com"],
+    methods: ["GET", "POST"],
+    credentials: true,
+  })
+);
+
+//helper
+async function computeEtransfer(items) {
+  let totalCents = 0;
+  const normalized = [];
+  for (const it of items || []) {
+    const p = await fetchProduct(it.id);
+    const qty = Number(it.qty) || 1;
+    totalCents += p.unit_amount * qty;
+    normalized.push({
+      product_id: p.id,
+      name: it.name || p.name,
+      price: p.unit_amount / 100,
+      qty,
+    });
+  }
+  return { totalCents, normalizedItems: normalized };
+}
+
 async function decrementInventory(orderId) {
   const { data: items, error: itemErr } = await supabase
     .from("OrderItems")
@@ -69,15 +85,14 @@ async function decrementInventory(orderId) {
   for (const it of items) {
     if (!it.product_id || !it.qty) continue;
 
-    // decrement qty
-    const { error: updErr } = await supabase
-      .from("Products")
-      .update({
-        qty: supabase.rpc('decrement', { amount: it.qty })
-      })
-      .eq("id", it.product_id);
+    const { error: decErr } = await supabase.rpc(
+      "decrement_product_qty",
+      { pid: it.product_id, amount: it.qty }
+    );
 
-    if (updErr) console.error("Inventory update failed:", updErr);
+    if (decErr) {
+      console.error(`Inventory update failed for ${it.product_id}:`, decErr);
+    }
   }
 }
 
@@ -128,24 +143,6 @@ async function buildStripeLineItems(items) {
   return rows;
 }
 
-
-async function computeEtransfer(items) {
-  let totalCents = 0;
-  const normalized = [];
-  for (const it of items || []) {
-    const p = await fetchProduct(it.id);
-    const qty = Number(it.qty) || 1;
-    totalCents += p.unit_amount * qty;
-    normalized.push({
-      product_id: p.id,
-      name: it.name || p.name,
-      price: p.unit_amount / 100,
-      qty,
-    });
-  }
-  return { totalCents, normalizedItems: normalized };
-}
-
 async function insertOrder(order) {
   const { data, error } = await supabase.from("Orders").insert(order).select().single();
   if (error) throw error;
@@ -162,9 +159,6 @@ async function insertItem(item) {
   const { error } = await supabase.from("OrderItems").insert(item);
   if (error) throw error;
 }
-
-// ---- Async wrapper & error middleware
-const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 /* ---------- Stripe webhook (raw body) ---------- */
 app.post(
@@ -337,8 +331,10 @@ app.post(
   }
 );
 
-/* ---------- Parse JSON for normal routes (must be AFTER Stripe raw webhook) ---------- */
 app.use(bodyParser.json());
+
+// ---- Async wrapper & error middleware
+const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 /* ---------- Health ---------- */
 app.get("/", (_req, res) =>
