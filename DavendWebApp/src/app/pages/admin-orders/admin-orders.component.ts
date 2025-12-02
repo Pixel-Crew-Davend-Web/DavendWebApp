@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AdminAuthService } from '../../services/admin-auth.service';
 import { PopupService } from '../../services/popup.service';
-import { SupabaseService, DbOrder } from '../../services/supabase.service';
+import { SupabaseService } from '../../services/supabase.service';
 
 type OrderStatus = 'Pending' | 'Completed' | 'Cancelled';
 
@@ -12,14 +12,11 @@ interface Order {
   email: string;
   phone: string;
   items: string;
-
-  method?: string | null;
-  reference?: string | null;
-
-  date: string; // YYYY-MM-DD
+  method?: string;
+  reference?: string;
+  date: string;
   status: OrderStatus;
-  notes?: string | null;
-
+  notes?: string;
   history: string[];
   _editing?: boolean;
   _pendingStatus?: OrderStatus;
@@ -28,10 +25,9 @@ interface Order {
 @Component({
   selector: 'app-admin-orders',
   templateUrl: './admin-orders.component.html',
-  styleUrls: ['./admin-orders.component.css']
+  styleUrls: ['./admin-orders.component.css'],
 })
 export class AdminOrdersComponent implements OnInit {
-
   constructor(
     private router: Router,
     private adminAuthService: AdminAuthService,
@@ -39,7 +35,11 @@ export class AdminOrdersComponent implements OnInit {
     private supabase: SupabaseService
   ) {}
 
-  // toast
+  ngOnInit() {
+    this.validateSession();
+    this.loadOrders();
+  }
+
   toastMsg = '';
   toastType: 'success' | 'error' | '' = '';
   toastTimer: any;
@@ -47,27 +47,30 @@ export class AdminOrdersComponent implements OnInit {
   loading = false;
   errorMsg = '';
 
-  // filters
   searchTerm = '';
   filterStatus: 'All' | OrderStatus = 'All';
   sortNewestFirst = true;
 
   orders: Order[] = [];
-  selected: Order | null = null;
-
-  ngOnInit() {
-    this.validateSession();
-    this.loadOrders();
-  }
 
   private mapDbStatus(status: string | null | undefined): OrderStatus {
     const s = (status || '').toLowerCase();
-
     if (s.startsWith('pend')) return 'Pending';
     if (s.startsWith('comp') || s === 'paid') return 'Completed';
     if (s.startsWith('cancel')) return 'Cancelled';
-
     return 'Pending';
+  }
+
+  private mapUiStatusToDb(status: OrderStatus): string {
+    switch (status) {
+      case 'Completed':
+        return 'paid';
+      case 'Cancelled':
+        return 'cancelled';
+      case 'Pending':
+      default:
+        return 'pending';
+    }
   }
 
   async loadOrders() {
@@ -76,25 +79,22 @@ export class AdminOrdersComponent implements OnInit {
 
     try {
       const data = await this.supabase.fetchAllOrders();
-
-this.orders = (data || []).map((o: DbOrder) => ({
-  id: o.draft_id,
-  customerName: o.full_name || '',
-  email: o.email || '',
-  phone: o.phone || '',
-  items: (o as any).items || '', 
-  method: o.method || '',
-  reference: o.reference || '',
-  date: (o.created_at || '').slice(0, 10),
-  status: this.mapDbStatus(o.status),
-  notes: o.message || '',
-  history: []
-}));
-
-
+      this.orders = (data || []).map((o: any) => ({
+        id: o.draft_id,
+        customerName: o.full_name || '',
+        email: o.email || '',
+        phone: o.phone || '',
+        items: o.itemsSummary || 'No items found',
+        method: o.method || '—',
+        reference: o.reference || '',
+        date: (o.created_at || '').slice(0, 10),
+        status: this.mapDbStatus(o.status),
+        notes: o.message || '',
+        history: [],
+      }));
     } catch (err) {
       console.error('Failed to load orders', err);
-      this.errorMsg = 'Could not load orders. Please try again.';
+      this.errorMsg = 'Could not load orders.';
       this.showToast('Failed to load orders', 'error');
     } finally {
       this.loading = false;
@@ -110,33 +110,17 @@ this.orders = (data || []).map((o: DbOrder) => ({
 
     const adminID = await this.adminAuthService.getAdminIDByEmail(email);
     const localToken = localStorage.getItem('adminToken');
-    const valid = await this.adminAuthService.isAdminTokenValid(
-      adminID,
-      localToken || undefined
-    );
+    const valid = await this.adminAuthService.isAdminTokenValid(adminID, localToken || undefined);
 
     if (!valid) {
       this.popup.error('Session expired. Please log in again.');
       this.adminAuthService.logoutAdmin();
       this.router.navigate(['/login']);
     }
+
+    this.popup.info('Admin Session valid!');
   }
 
-  statusClass(status: string): string {
-  switch (status) {
-    case 'Pending':
-      return 'status-pending';
-    case 'Completed':
-      return 'status-completed';
-    case 'Cancelled':
-      return 'status-cancelled';
-    default:
-      return '';
-  }
-}
-
-
-  // filtered + sorted
   get filteredOrders(): Order[] {
     let list = [...this.orders];
 
@@ -149,6 +133,7 @@ this.orders = (data || []).map((o: DbOrder) => ({
       list = list.filter(o =>
         o.id.toLowerCase().includes(q) ||
         o.customerName.toLowerCase().includes(q) ||
+        o.items.toLowerCase().includes(q) ||
         o.email.toLowerCase().includes(q) ||
         (o.method || '').toLowerCase().includes(q) ||
         (o.reference || '').toLowerCase().includes(q) ||
@@ -164,67 +149,15 @@ this.orders = (data || []).map((o: DbOrder) => ({
     return list;
   }
 
-  // --- Display helpers ---
-
-  formatMethod(method?: string | null): string {
-    if (!method || method === '—') {
-      return 'Unknown';
-    }
-
-    const m = method.toLowerCase();
-
-    if (m === 'etransfer' || m === 'e-transfer' || m === 'etrans') {
-      return 'E-Transfer';
-    }
-    if (m === 'stripe') return 'Stripe';
-    if (m === 'paypal') return 'PayPal';
-    if (m === 'cash') return 'Cash';
-
-    return m.charAt(0).toUpperCase() + m.slice(1);
+  statusClass(s: OrderStatus) {
+    return {
+      badge: true,
+      pending: s === 'Pending',
+      completed: s === 'Completed',
+      cancelled: s === 'Cancelled',
+    };
   }
 
-  displayCustomerName(o: Order): string {
-    if (o.customerName && o.customerName !== '—') return o.customerName;
-    return 'Guest checkout';
-  }
-
-  displayNotes(o: Order): string {
-    const raw = (o.notes || '').trim();
-    if (!raw || raw === '—') return 'No notes';
-    if (raw.length <= 40) return raw;
-    return raw.slice(0, 37) + '…';
-  }
-
-    // Dot-jot style items for the table
-  getItemsForDisplay(o: Order): string[] {
-    const src = (o.items || '').trim();
-    if (!src) return [];
-
-    // Split on comma, semicolon, or new line
-    const parts = src
-      .split(/[;,\n]/)
-      .map(p => p.trim())
-      .filter(p => p.length > 0);
-
-    // Show up to 3 items in the cell
-    return parts.slice(0, 3);
-  }
-
-
-  getSelectedNotesText(): string {
-    if (!this.selected || !this.selected.notes) {
-      return 'No notes have been added for this order.';
-    }
-
-    const n = this.selected.notes.trim();
-    if (!n || n === '—') {
-      return 'No notes have been added for this order.';
-    }
-
-    return n;
-  }
-
-  // toast
   showToast(msg: string, type: 'success' | 'error' = 'success') {
     clearTimeout(this.toastTimer);
     this.toastMsg = msg;
@@ -232,10 +165,9 @@ this.orders = (data || []).map((o: DbOrder) => ({
     this.toastTimer = setTimeout(() => {
       this.toastMsg = '';
       this.toastType = '';
-    }, 2200);
+    }, 2500);
   }
 
-  // row actions
   beginEdit(o: Order) {
     o._editing = true;
     o._pendingStatus = o.status;
@@ -246,24 +178,39 @@ this.orders = (data || []).map((o: DbOrder) => ({
     o._pendingStatus = undefined;
   }
 
-  saveEdit(o: Order) {
+  async saveEdit(o: Order) {
     if (!o._editing || o._pendingStatus === undefined) return;
 
     const old = o.status;
     const next = o._pendingStatus;
 
-    if (old !== next) {
-      o.status = next;
-      const timestamp = new Date().toLocaleString();
-      o.history.push(`Status changed from ${old} to ${next} on ${timestamp}`);
-      this.showToast(`Order ${o.id} updated to ${next}`, 'success');
+    if (old === next) {
+      o._editing = false;
+      o._pendingStatus = undefined;
+      return;
     }
 
-    o._editing = false;
-    o._pendingStatus = undefined;
+    const dbStatus = this.mapUiStatusToDb(next);
+
+    try {
+      await this.supabase.updateOrderStatus(o.id, dbStatus);
+      o.status = next;
+
+      const timestamp = new Date().toLocaleString();
+      o.history.push(`Status changed from ${old} to ${next} on ${timestamp}`);
+
+      this.showToast(`Order ${o.id} updated to ${next}`, 'success');
+    } catch (err) {
+      console.error('Failed to update order status', err);
+      this.showToast('Failed to update order in database', 'error');
+    } finally {
+      o._editing = false;
+      o._pendingStatus = undefined;
+    }
   }
 
-  // modal
+  selected: Order | null = null;
+
   openDetails(o: Order) {
     this.selected = o;
   }
@@ -272,25 +219,15 @@ this.orders = (data || []).map((o: DbOrder) => ({
     this.selected = null;
   }
 
-  // export CSV
   downloadCSV() {
-    const header = [
-      'ID',
-      'Customer',
-      'Email',
-      'Phone',
-      'Method',
-      'Reference',
-      'Date',
-      'Status',
-      'Notes'
-    ];
+    const header = ['ID', 'Customer', 'Email', 'Phone', 'Items', 'Method', 'Reference', 'Date', 'Status', 'Notes'];
 
     const rows = this.filteredOrders.map(o => [
       o.id,
       o.customerName,
       o.email,
       o.phone,
+      o.items,
       o.method ?? '',
       o.reference ?? '',
       o.date,
@@ -304,14 +241,15 @@ this.orders = (data || []).map((o: DbOrder) => ({
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
+
     const a = document.createElement('a');
     a.href = url;
     a.download = `orders_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
+
     URL.revokeObjectURL(url);
   }
 
-  // navigation
   goHome() {
     this.router.navigate(['/']);
   }
