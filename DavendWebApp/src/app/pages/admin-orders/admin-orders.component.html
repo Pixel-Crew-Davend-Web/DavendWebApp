@@ -70,6 +70,10 @@
               <th class="sticky">Method</th>
               <th class="sticky">Date</th>
               <th class="sticky">Status</th>
+
+              <!-- NEW: Reference column header -->
+              <th class="sticky">Reference</th>
+
               <th class="sticky">Actions</th>
               <th class="sticky">History</th>
             </tr>
@@ -90,6 +94,17 @@
 
               <td>
                 <span [ngClass]="statusClass(o.status)">{{ o.status }}</span>
+              </td>
+
+              <!-- NEW: Reference number (only when Pending) -->
+              <td>
+                <ng-container *ngIf="o.status === 'Pending'; else blankRef">
+                  <span class="ref-pill">{{ o.reference || '—' }}</span>
+                </ng-container>
+
+                <ng-template #blankRef>
+                  —
+                </ng-template>
               </td>
 
               <td class="row-actions">
@@ -133,6 +148,10 @@
       <p><strong>Method:</strong> {{ selected.method || '—' }}</p>
       <p><strong>Date:</strong> {{ selected.date }}</p>
       <p><strong>Status:</strong> {{ selected.status }}</p>
+
+      <!-- NEW: Show reference inside modal too -->
+      <p><strong>Reference:</strong> {{ selected.reference || '—' }}</p>
+
       <p><strong>Notes:</strong> {{ selected.notes || '—' }}</p>
 
       <div class="actions">

@@ -79,11 +79,10 @@ export class AdminOrdersComponent implements OnInit {
 
 this.orders = (data || []).map((o: DbOrder) => ({
   id: o.draft_id,
-  customerName: o.name || '',
+  customerName: o.full_name || '',
   email: o.email || '',
   phone: o.phone || '',
-  // items: 'See order items',   <-- REMOVE this line
-  items: (o as any).items || '', // <-- ADD this
+  items: (o as any).items || '', 
   method: o.method || '',
   reference: o.reference || '',
   date: (o.created_at || '').slice(0, 10),

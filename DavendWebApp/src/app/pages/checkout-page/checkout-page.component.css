@@ -188,7 +188,17 @@
   background: #fafafa;
   display: flex;
   align-items: center;
+
+  transform: translateY(0);
+  box-shadow: 0 0 0 rgba(0,0,0,0);
+
+  &:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    background: #f0f0f0;
+  }
 }
+
 
 .pm-card:hover {
   background: #f0f0f0;
