@@ -33,7 +33,7 @@ export interface DbOrder {
   status?: string | null;
   method?: string | null;
   reference?: string | null;
-  name?: string | null;
+  full_name?: string | null;
   email?: string | null;
   phone?: string | null;
   message?: string | null;
