@@ -166,7 +166,6 @@ async function insertItem(item) {
 // ---- Async wrapper & error middleware
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-app.use((req, res, next) => next());
 /* ---------- Stripe webhook (raw body) ---------- */
 app.post(
   "/api/webhooks/stripe",
