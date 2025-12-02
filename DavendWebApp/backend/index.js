@@ -173,6 +173,7 @@ app.post(
   bodyParser.raw({ type: "application/json" }),
   async (req, res) => {
     let event;
+
     try {
       event = stripe.webhooks.constructEvent(
         req.body,
@@ -180,7 +181,7 @@ app.post(
         process.env.STRIPE_WEBHOOK_SECRET
       );
     } catch (err) {
-      console.error("❌ Stripe signature fail:", err?.message || err);
+      console.error("❌ Stripe signature error:", err.message);
       return res.status(400).send("bad signature");
     }
 
@@ -189,103 +190,104 @@ app.post(
     }
 
     console.log("🔥 Stripe checkout.session.completed received");
+    const session = event.data.object;
 
     try {
-      const s = event.data.object;
+      /* 1. Extract order ID */
+      const orderDraftId = session.metadata?.orderDraftId;
+      if (!orderDraftId) {
+        console.error("❌ Missing orderDraftId in metadata");
+        return res.status(400).send("missing draft_id");
+      }
 
-      /* -------------------- SAVE ORDER -------------------- */
+      /* 2. Upsert Order */
       const order = {
-        draft_id: s?.metadata?.orderDraftId ?? s?.metadata?.draft_id ?? null,
+        draft_id: orderDraftId,
         status: "paid",
         method: "stripe",
-        reference: s?.payment_intent ?? s?.id ?? null,
-        message: s?.metadata?.message ?? "",
-        amount:
-          typeof s?.amount_total === "number" ? s.amount_total / 100 : null,
-        currency: s?.currency?.toLowerCase() ?? "cad",
-        full_name: s?.customer_details?.name ?? s?.metadata?.fullName ?? "",
-        email: s?.customer_details?.email ?? s?.customer_email ?? "",
-        phone: s?.metadata?.phone ?? "",
-        address: s?.metadata?.address ?? "",
-        city: s?.metadata?.city ?? "",
-        postal_code: s?.metadata?.postalCode ?? "",
+        reference: session.payment_intent || session.id,
+        message: session.metadata?.message || "",
+        amount: session.amount_total / 100,
+        currency: session.currency || "cad",
+        full_name:
+          session.customer_details?.name ||
+          session.metadata?.fullName ||
+          "",
+        email:
+          session.customer_details?.email ||
+          session.customer_email ||
+          "",
+        phone: session.metadata?.phone || "",
+        address: session.metadata?.address || "",
+        city: session.metadata?.city || "",
+        postal_code: session.metadata?.postalCode || "",
       };
 
-      if (!order.draft_id) {
-        console.error("❌ Missing draft_id in Stripe metadata");
-        return res.status(500).send("missing draft_id");
+      await supabase
+        .from("Orders")
+        .upsert(order, { onConflict: "draft_id" });
+
+      console.log("✔ Order upserted", orderDraftId);
+
+      /* 3. Parse cart directly from metadata (NOT Stripe line items) */
+      let rawItems = [];
+      try {
+        rawItems = JSON.parse(session.metadata.items || "[]");
+      } catch (e) {
+        console.error("❌ Could not parse metadata.items:", e);
+        rawItems = [];
       }
 
-      await supabase.from("Orders").upsert(order, {
-        onConflict: "draft_id",
-      });
+      console.log("🧾 Metadata cart items:", rawItems);
 
-      /* -------------------- INSERT ORDER ITEMS -------------------- */
-      console.log("🔥 Fetching Stripe line items...");
-      const lineItems = await stripe.checkout.sessions.listLineItems(s.id);
-      const cartItems = JSON.parse(s.metadata.items || "[]");
+      /* 4. Normalize items */
+      const { normalizedItems } = await computeEtransfer(rawItems);
 
-      for (const li of lineItems.data) {
-        const qty = li.quantity;
-        const name = li.description;
+      /* 5. Clear previous items */
+      await supabase
+        .from("OrderItems")
+        .delete()
+        .eq("order_id", orderDraftId);
 
-        const matched = cartItems.find(
-          (ci) => ci.name === name && Number(ci.qty) === Number(qty)
-        );
+      /* 6. Insert order items */
+      for (const item of normalizedItems) {
+        const orderItem = {
+          order_id: orderDraftId,
+          product_id: item.product_id,
+          name: item.name,
+          price: item.price,
+          qty: item.qty,
+          subtotal: item.price * item.qty,
+        };
 
-        const productId = matched ? matched.id : null;
+        console.log("→ Inserting item:", orderItem);
 
-        console.log(`→ Adding OrderItem: ${name} x${qty}, productId = ${productId}`);
+        const { error } = await supabase
+          .from("OrderItems")
+          .insert(orderItem);
 
-        const { error: itemErr } = await supabase.from("OrderItems").insert({
-          order_id: order.draft_id,
-          product_id: productId,
-          name,
-          price: li.price?.unit_amount ? li.price.unit_amount / 100 : 0,
-          qty,
-        });
-
-        if (itemErr) console.error("❌ Stripe OrderItem insert error:", itemErr);
+        if (error) {
+          console.error("❌ OrderItem insert error:", error);
+        }
       }
 
-      /* -------------------- UPDATE INVENTORY -------------------- */
+      /* 7. Update inventory */
       console.log("🔥 Updating inventory for Stripe...");
-
-      const { data: orderItems, error: oiErr } = await supabase
+      const { data: items } = await supabase
         .from("OrderItems")
         .select("product_id, qty")
-        .eq("order_id", order.draft_id);
+        .eq("order_id", orderDraftId);
 
-      if (oiErr) {
-        console.error("❌ Could not fetch OrderItems for Stripe inventory:", oiErr);
-      } else {
-        for (const it of orderItems) {
-          if (!it.product_id) continue;
-
-          console.log(`   → Decreasing qty for product ${it.product_id} by ${it.qty}`);
-
-          const { error: decErr } = await supabase.rpc(
-            "decrement_product_qty",
-            {
-              pid: it.product_id,
-              amount: it.qty,
-            }
-          );
-
-          if (decErr) {
-            console.error(
-              `❌ Inventory decrement failed for ${it.product_id}:`,
-              decErr
-            );
-          } else {
-            console.log(`✔ Inventory updated for ${it.product_id}`);
-          }
-        }
+      for (const it of items) {
+        await supabase.rpc("decrement_product_qty", {
+          pid: it.product_id,
+          amount: it.qty,
+        });
       }
 
       return res.sendStatus(200);
     } catch (err) {
-      console.error("❌ Stripe webhook error:", err);
+      console.error("❌ Webhook error:", err);
       return res.status(500).send("webhook error");
     }
   }
