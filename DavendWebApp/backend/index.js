@@ -10,6 +10,8 @@ import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
+console.log("🔥 Server starting…");
+
 dotenv.config();
 
 const app = express();
@@ -56,23 +58,6 @@ app.use(
 );
 
 //helper
-async function computeEtransfer(items) {
-  let totalCents = 0;
-  const normalized = [];
-  for (const it of items || []) {
-    const p = await fetchProduct(it.id);
-    const qty = Number(it.qty) || 1;
-    totalCents += p.unit_amount * qty;
-    normalized.push({
-      product_id: p.id,
-      name: it.name || p.name,
-      price: p.unit_amount / 100,
-      qty,
-    });
-  }
-  return { totalCents, normalizedItems: normalized };
-}
-
 async function decrementInventory(orderId) {
   const { data: items, error: itemErr } = await supabase
     .from("OrderItems")
@@ -117,6 +102,23 @@ async function fetchProduct(productIdRaw) {
   if (!(unit_amount > 0)) throw new Error(`Invalid price for product ${productId}`);
 
   return { id: data.id, name: data.name ?? `Item ${productId}`, unit_amount };
+}
+
+async function computeEtransfer(items) {
+  let totalCents = 0;
+  const normalized = [];
+  for (const it of items || []) {
+    const p = await fetchProduct(it.id);
+    const qty = Number(it.qty) || 1;
+    totalCents += p.unit_amount * qty;
+    normalized.push({
+      product_id: p.id,
+      name: it.name || p.name,
+      price: p.unit_amount / 100,
+      qty,
+    });
+  }
+  return { totalCents, normalizedItems: normalized };
 }
 
 async function buildStripeLineItems(items) {
@@ -330,8 +332,12 @@ app.post(
     }
   }
 );
+console.log("🔥 Stripe webhook mounted");
+
 
 app.use(bodyParser.json());
+
+
 
 // ---- Async wrapper & error middleware
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -340,6 +346,8 @@ const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, ne
 app.get("/", (_req, res) =>
   res.send("Davend Email + Payments Backend Running ✔️")
 );
+
+console.log("🚦 Stripe + PayPal + Etransfer routes loading");
 
 /* ---------- Stripe (card) ---------- */
 app.post(
@@ -986,6 +994,8 @@ app.use((err, _req, res, _next) => {
   console.error("❌ Unhandled error:", err?.raw?.message || err?.message || err);
   res.status(500).json({ error: err?.raw?.message || err?.message || "Internal server error" });
 });
+
+console.log("🚀 Booting server now...");
 
 /* ---------- Start ---------- */
 app.listen(PORT, () => console.log(`✅ Server running at http://localhost:${PORT}`));
