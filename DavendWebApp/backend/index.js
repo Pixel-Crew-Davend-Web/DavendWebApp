@@ -274,7 +274,6 @@ app.post(
             name: ni.name,
             price: ni.price,
             qty: ni.qty,
-            subtotal: ni.price * ni.qty,
           };
 
           console.log("→ Inserting Stripe OrderItem:", row);
