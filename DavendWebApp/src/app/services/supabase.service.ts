@@ -2,7 +2,12 @@ import { Injectable } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-export type ReportType = 'byProducts' | 'byOrders';
+export type ReportType =
+  | 'byProducts'
+  | 'byOrders'
+  | 'reportCustomer'
+  | 'orderFrequencyReport'
+  | 'frequentCustomersReport';
 export type OrdersGroupBy = 'day' | 'name' | 'email' | 'status' | 'method';
 export type ProductsGroupBy = 'name' | 'active';
 export type GroupBy = OrdersGroupBy | ProductsGroupBy;
@@ -51,7 +56,6 @@ export interface DbOrderItem {
 export interface DbOrderWithItems extends DbOrder {
   itemsSummary?: string | null;
 }
-
 
 @Injectable({
   providedIn: 'root',
@@ -368,13 +372,12 @@ export class SupabaseService {
   }
 
   async getVariantByID(id: string) {
-  return this.supabase
-    .from('ProductVariants')
-    .select('*, Products(*)')   // fetch parent product for image + name
-    .eq('id', id)
-    .single();
-}
-
+    return this.supabase
+      .from('ProductVariants')
+      .select('*, Products(*)') // fetch parent product for image + name
+      .eq('id', id)
+      .single();
+  }
 
   async getAllProductsWithVariants() {
     const { data, error } = await this.supabase
@@ -473,7 +476,7 @@ export class SupabaseService {
     // 5) Attach "itemsSummary" to each order
     return orders.map((o) => {
       const key = (o.draft_id || '').trim();
-      const summary = (key && byOrder[key]) ? byOrder[key].join(', ') : '';
+      const summary = key && byOrder[key] ? byOrder[key].join(', ') : '';
 
       return {
         ...o,
@@ -482,7 +485,7 @@ export class SupabaseService {
     });
   }
 
-    async updateOrderStatus(draftId: string, dbStatus: string): Promise<void> {
+  async updateOrderStatus(draftId: string, dbStatus: string): Promise<void> {
     const id = (draftId || '').trim();
     if (!id) {
       throw new Error('Missing order draft_id for update');
@@ -501,7 +504,6 @@ export class SupabaseService {
       throw error;
     }
   }
-
 
   async fetchOrderWithItems(
     draftId: string
@@ -541,6 +543,47 @@ export class SupabaseService {
     };
   }
 
+  async uploadAdditionalProductImage(file: File): Promise<string> {
+    const ext = file.name.split('.').pop();
+    const fileName = `${crypto.randomUUID()}.${ext}`;
+
+    const { error } = await this.supabase.storage
+      .from('product-images')
+      .upload(fileName, file);
+
+    if (error) throw error;
+
+    return fileName; // returns the storage path
+  }
+
+  async addProductImage(productId: string, imagePath: string) {
+    const { data, error } = await this.supabase
+      .from('productimages')
+      .insert({ product_id: productId, image_path: imagePath });
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getProductImages(productId: string) {
+    const { data, error } = await this.supabase
+      .from('productimages')
+      .select('*')
+      .eq('product_id', productId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async deleteProductImageRecord(id: string, imagePath: string) {
+    // delete from bucket
+    await this.supabase.storage.from('product-images').remove([imagePath]);
+
+    // delete from DB
+    return this.supabase.from('productimages').delete().eq('id', id);
+  }
+
   async generateAndStoreReport(
     params: ReportParams
   ): Promise<GeneratedReportInfo> {
@@ -549,11 +592,13 @@ export class SupabaseService {
     const { rows, headers } = await this.fetchAndAggregate(params);
     const csv = this.toCSV(headers, rows);
 
+    const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
     // Build canonical filenames
     const stamp = this.ts();
     const fromStr = this.safeDate(params.from);
     const toStr = this.safeDate(params.to);
-    const baseName = `report_${params.type}_${params.groupBy}_${fromStr}_to_${toStr}_${stamp}`;
+    const baseName = `report_${params.type}_${params.groupBy}_${fromStr}_to_${toStr}_${stamp}_(${timestamp})`;
 
     const csvBlob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const csvPath = `${baseName}.csv`;
@@ -588,6 +633,173 @@ export class SupabaseService {
       itemsCount: rows.length,
       // signedCsvUrl,
       // signedPdfUrl
+    };
+  }
+
+  async generateReportCustomer(from: any, to: any) {
+    from = new Date(from);
+    to = new Date(to);
+
+    const { data: orders, error } = await this.supabase
+      .from('Orders')
+      .select('draft_id, created_at, full_name')
+      .gte('created_at', from.toISOString())
+      .lte('created_at', to.toISOString());
+
+    if (error) throw error;
+
+    if (!orders?.length) {
+      return this.saveCustomReport(
+        'reportCustomer',
+        ['Product', 'Customer', 'Order Count'],
+        [],
+        from,
+        to
+      );
+    }
+
+    const ids = orders.map((o) => o.draft_id);
+
+    const { data: items, error: itemsErr } = await this.supabase
+      .from('OrderItems')
+      .select('order_id, name, qty')
+      .in('order_id', ids);
+
+    if (itemsErr) throw itemsErr;
+
+    const counts = new Map<string, number>();
+
+    for (const it of items) {
+      const order = orders.find((o) => o.draft_id === it.order_id);
+      if (!order) continue;
+
+      const product = (it.name || 'Unknown Product').trim();
+      const customer = (order.full_name || 'Unknown Customer').trim();
+      const key = `${product}__${customer}`;
+
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+
+    const rows = [...counts.entries()].map(([key, count]) => {
+      const [product, customer] = key.split('__');
+      return { product, customer, order_count: count };
+    });
+
+    return this.saveCustomReport(
+      'reportCustomer',
+      ['Product', 'Customer', 'Order Count'],
+      rows,
+      from,
+      to
+    );
+  }
+
+  async generateOrderFrequencyReport(from: any, to: any) {
+    from = new Date(from);
+    to = new Date(to);
+
+    const { data, error } = await this.supabase
+      .from('Orders')
+      .select('full_name, created_at')
+      .gte('created_at', from.toISOString())
+      .lte('created_at', to.toISOString());
+
+    if (error) throw error;
+
+    const freq = new Map<string, number>();
+
+    for (const o of data ?? []) {
+      const customer = (o.full_name || 'Unknown Customer').trim();
+      freq.set(customer, (freq.get(customer) || 0) + 1);
+    }
+
+    const rows = [...freq.entries()].map(([customer, count]) => ({
+      customer,
+      order_count: count,
+    }));
+
+    return this.saveCustomReport(
+      'orderFrequencyReport',
+      ['Customer', 'Order Count'],
+      rows,
+      from,
+      to
+    );
+  }
+
+  async generateFrequentCustomersReport(from: any, to: any) {
+    from = new Date(from);
+    to = new Date(to);
+
+    const { data, error } = await this.supabase
+      .from('Orders')
+      .select('full_name, created_at')
+      .gte('created_at', from.toISOString())
+      .lte('created_at', to.toISOString());
+
+    if (error) throw error;
+
+    const counts = new Map<string, number>();
+
+    for (const o of data ?? []) {
+      const customer = (o.full_name || 'Unknown Customer').trim();
+      counts.set(customer, (counts.get(customer) || 0) + 1);
+    }
+
+    const rows = [...counts.entries()].map(([customer, total]) => ({
+      customer,
+      total_orders: total,
+      type: total >= 2 ? 'Frequent' : 'One-Time',
+    }));
+
+    return this.saveCustomReport(
+      'frequentCustomersReport',
+      ['Customer', 'Total Orders', 'Customer Type'],
+      rows,
+      from,
+      to
+    );
+  }
+
+  private async saveCustomReport(
+    type: string,
+    headers: string[],
+    rows: any[],
+    from: Date,
+    to: Date
+  ): Promise<GeneratedReportInfo> {
+    await this.ensureBucket();
+
+    const csv = this.toCSV(headers, rows);
+
+    const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const stamp = this.ts();
+    const fromStr = this.safeDate(from);
+    const toStr = this.safeDate(to);
+
+    // No groupBy for these custom reports
+    const baseName = `report_${type}_${fromStr}_to_${toStr}_${stamp}_(${timestamp})`;
+
+    // --- CSV Upload ---
+    const csvBlob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const csvPath = `${baseName}.csv`;
+    await this.uploadFile(this.BUCKET, csvPath, csvBlob, 'text/csv');
+
+    // --- PDF Upload ---
+    const pdfPath = `${baseName}.pdf`;
+    try {
+      const pdfBlob = await this.buildPdfBlob(type, headers, rows);
+      await this.uploadFile(this.BUCKET, pdfPath, pdfBlob, 'application/pdf');
+    } catch (err) {
+      console.warn('PDF failed, CSV saved anyway:', err);
+    }
+
+    return {
+      bucket: this.BUCKET,
+      baseName,
+      csvPath,
+      pdfPath,
+      itemsCount: rows.length,
     };
   }
 
@@ -920,5 +1132,43 @@ export class SupabaseService {
 
     if (error) throw error;
     return filePath;
+  }
+
+  async getServiceImages() {
+    const { data, error } = await this.supabase.storage
+      .from('service-images')
+      .list('', { limit: 100, offset: 0 });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async deleteServiceImage(filePath: string) {
+    const { error } = await this.supabase.storage
+      .from('service-images')
+      .remove([filePath]);
+    if (error) throw error;
+  }
+
+  async getProductImges() {
+    const { data, error } = await this.supabase.storage
+      .from('product-images')
+      .list('', { limit: 100, offset: 0 });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getProductsImageUrl() {
+    const { data, error } = await this.supabase
+      .from('Products')
+      .select('imageURL');
+    if (error) throw error;
+    return data || [];
+  }
+
+  async deleteProductImage(filePath: string) {
+    const { error } = await this.supabase.storage
+      .from('product-images')
+      .remove([filePath]);
+    if (error) throw error;
   }
 }

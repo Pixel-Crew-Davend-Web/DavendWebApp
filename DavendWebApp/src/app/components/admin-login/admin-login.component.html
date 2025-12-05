@@ -3,7 +3,7 @@
 
     <!-- Brand / Header -->
     <div class="brand">
-      <div class="logo-dot"></div>
+      <img src="assets/comp-nobg.png" alt="company logo">
       <h1>Admin Portal</h1>
       <p class="subtitle">Manage products & orders securely</p>
     </div>
@@ -25,6 +25,7 @@
         (click)="changeMode(false)"
         role="tab"
         [attr.aria-selected]="!logIn"
+        [disabled]="true"
         >
         Sign Up
         </button>

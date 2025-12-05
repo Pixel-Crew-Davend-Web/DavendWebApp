@@ -38,8 +38,23 @@
   <h2 class="section-title">Available Products</h2>
   <div class="products-grid">
     <article class="product-card card" *ngFor="let product of filteredProducts">
-      <div class="product-media">
-        <img [src]="getImageUrl(product.imageURL)" alt="{{ product.name }}" />
+      <div class="product-media carousel-wrapper">
+        <!-- Left Arrow -->
+        <button class="nav-arrow left" (click)="prevImage(product)">‹</button>
+
+        <!-- Image Display -->
+        <div class="fade-container">
+          <img
+            [src]="getProductImage(product)"
+            alt="{{ product.name }}"
+            class="carousel-image fade-image"
+            [class.fade-in]="product.fadeState === 'in'"
+            [class.fade-out]="product.fadeState === 'out'"
+          />
+        </div>
+
+        <!-- Right Arrow -->
+        <button class="nav-arrow right" (click)="nextImage(product)">›</button>
       </div>
 
       <div class="product-body">
@@ -116,6 +131,26 @@
         </div>
       </div>
     </article>
+  </div>
+
+  <div class="pagination-container" *ngIf="totalPages > 1">
+    <button
+      class="page-btn"
+      [disabled]="currentPage === 1"
+      (click)="prevPage()"
+    >
+      ‹ Prev
+    </button>
+
+    <span class="page-info"> Page {{ currentPage }} of {{ totalPages }} </span>
+
+    <button
+      class="page-btn"
+      [disabled]="currentPage === totalPages"
+      (click)="nextPage()"
+    >
+      Next ›
+    </button>
   </div>
 
   <div *ngIf="!filteredProducts.length" class="empty-state card">

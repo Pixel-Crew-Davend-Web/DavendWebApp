@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { PopupService } from '../../services/popup.service';
 import { ActivatedRoute } from '@angular/router';
+import { SupabaseService } from '../../services/supabase.service';
 
 @Component({
   selector: 'app-service-request-page',
@@ -12,11 +13,7 @@ import { ActivatedRoute } from '@angular/router';
 })
 export class ServiceRequestPageComponent implements OnDestroy {
 
-  services: string[] = [
-    'Surface Grinding',
-    'Centerless Grinding',
-    'Punch & Die Manufacturing',
-  ];
+  services: string[] = [];
 
   selectedService: string = 'Surface Grinding'; // Default value for selected service
 
@@ -38,7 +35,7 @@ export class ServiceRequestPageComponent implements OnDestroy {
 
   @ViewChild('reuploadInput', { static: false }) reuploadInput!: ElementRef<HTMLInputElement>;
 
-  constructor(private fb: FormBuilder, private http: HttpClient, private sanitizer: DomSanitizer, private popup: PopupService, private route: ActivatedRoute,) {
+  constructor(private fb: FormBuilder, private http: HttpClient, private sanitizer: DomSanitizer, private popup: PopupService, private route: ActivatedRoute, private supabase: SupabaseService) {
     this.requestForm = this.fb.group({
       fullName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
@@ -49,6 +46,13 @@ export class ServiceRequestPageComponent implements OnDestroy {
   }
 
   ngOnInit() {
+
+    const data = this.supabase.getAllServices().then(({ data }) => {
+      if (data) {
+        this.services = data.map(s => s.title);
+      }
+    });
+
   const selected = this.route.snapshot.queryParamMap.get('service');
 
   if (selected) {
@@ -82,6 +86,8 @@ export class ServiceRequestPageComponent implements OnDestroy {
 
   selectService(service: string) {
     this.selectedService = service;
+    const formatted = `[${service}] --- `;
+    this.requestForm.patchValue({ message: formatted });
   }
 
   onFileChange(event: any) {

@@ -24,7 +24,7 @@ const routes: Routes = [
   { path: 'manage-inventory', component: ManageInventoryComponent, canActivate: [AuthGuard] },
   { path: 'orders', component: AdminOrdersComponent, canActivate: [AuthGuard] },
   { path: 'login', component: AdminLoginComponent },
-  { path: 'register', component: AdminLoginComponent },
+  { path: 'register', component: AdminLoginComponent, canActivate: [AuthGuard] },
   { path: 'checkout', component: CheckoutPageComponent },
   { path: 'success/:id', component: SuccessComponent },
   { path: 'track-order', component: TrackOrderComponent }, 

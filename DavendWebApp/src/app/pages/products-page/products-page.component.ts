@@ -13,9 +13,14 @@ type SortKey = '' | 'price-asc' | 'price-desc' | 'qty';
 export class ProductsPageComponent {
   products: any[] = [];
   filteredProducts: any[] = [];
+  filteredProductsFull: any[] = [];
   searchTerm = '';
   productQty = 1;
   selectedFilter: SortKey = '';
+
+  itemsPerPage = 12;
+  currentPage = 1;
+  totalPages = 1;
 
   constructor(
     private productService: ProductService,
@@ -24,14 +29,28 @@ export class ProductsPageComponent {
   ) {}
 
   async ngOnInit() {
-    const data = await this.supabase.getAllProductsWithVariants();
-    this.products = data;
+    const prods = await this.supabase.getAllProductsWithVariants();
+
+    // Attach additional images + carousel index
+    for (const p of prods) {
+      const extras = await this.supabase.getProductImages(p.id);
+
+      p.allImages = [
+        p.imageURL, // main
+        ...extras.map((e) => e.image_path),
+      ];
+
+      p.carouselIndex = 0; // default image
+      p.fadeState = 'in';
+    }
+
     this.products.forEach((p) => {
       if (p.ProductVariants?.length) {
         p.selectedVariant = p.ProductVariants[0];
       }
     });
 
+    this.products = prods;
     this.filteredProducts = this.products.map((p) => ({ ...p, inputQty: 1 }));
   }
 
@@ -41,50 +60,39 @@ export class ProductsPageComponent {
   }
 
   private applyAllFilters(): void {
-    const term = (this.searchTerm || '').trim().toLowerCase();
+    let result = [...this.products];
 
-    let list = this.products.filter((p) => {
-      const name = String(p.name || '').toLowerCase();
-      const desc = String(p.description || '').toLowerCase();
-      return name.includes(term) || desc.includes(term);
-    });
+    // ===== Search filter =====
+    if (this.searchTerm.trim()) {
+      const term = this.searchTerm.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(term) ||
+          p.description.toLowerCase().includes(term)
+      );
+    }
 
+    // ===== Sort filter =====
     switch (this.selectedFilter) {
       case 'price-asc':
-        list = list.sort(
-          (a, b) =>
-            this.toNum(a.price) - this.toNum(b.price) ||
-            String(a.name).localeCompare(String(b.name))
-        );
+        result.sort((a, b) => (a.price || 0) - (b.price || 0));
         break;
       case 'price-desc':
-        list = list.sort(
-          (a, b) =>
-            this.toNum(b.price) - this.toNum(a.price) ||
-            String(a.name).localeCompare(String(b.name))
-        );
+        result.sort((a, b) => (b.price || 0) - (a.price || 0));
         break;
       case 'qty':
-        list = list.sort(
-          (a, b) =>
-            this.toNum(b.qty) - this.toNum(a.qty) ||
-            String(a.name).localeCompare(String(b.name))
-        );
-        break;
-      case '':
-        list = list.sort((a, b) =>
-          String(a.name).localeCompare(String(b.name))
-        );
+        result.sort((a, b) => (b.qty || 0) - (a.qty || 0));
         break;
     }
 
-    const oldById = new Map(
-      this.filteredProducts.map((p) => [p.id, this.toNum(p.inputQty) || 1])
-    );
-    this.filteredProducts = list.map((p) => ({
-      ...p,
-      inputQty: oldById.get(p.id) ?? 1,
-    }));
+    // Save full filtered list
+    this.filteredProductsFull = result;
+
+    // Reset page when filters/search change
+    this.currentPage = 1;
+
+    // Slice display list
+    this.updatePagination();
   }
 
   filterProducts(): void {
@@ -93,6 +101,30 @@ export class ProductsPageComponent {
 
   onFilterChange(): void {
     this.applyAllFilters();
+  }
+
+  updatePagination() {
+    const total = this.filteredProductsFull.length;
+    this.totalPages = Math.ceil(total / this.itemsPerPage);
+
+    const start = (this.currentPage - 1) * this.itemsPerPage;
+    const end = start + this.itemsPerPage;
+
+    this.filteredProducts = this.filteredProductsFull.slice(start, end);
+  }
+
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.updatePagination();
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.updatePagination();
+    }
   }
 
   getImageUrl(fileName: string): string {
@@ -118,5 +150,34 @@ export class ProductsPageComponent {
       this.popup.error('Failed to add product to cart.');
       console.error('Error adding product to cart:', e);
     }
+  }
+
+  nextImage(p: any) {
+    if (!p.allImages) return;
+
+    p.fadeState = 'out';
+
+    setTimeout(() => {
+      p.carouselIndex = (p.carouselIndex + 1) % p.allImages.length;
+      p.fadeState = 'in';
+    }, 150); // duration matches CSS fade-out
+  }
+
+  prevImage(p: any) {
+    if (!p.allImages) return;
+
+    p.fadeState = 'out';
+
+    setTimeout(() => {
+      p.carouselIndex =
+        (p.carouselIndex - 1 + p.allImages.length) % p.allImages.length;
+      p.fadeState = 'in';
+    }, 150);
+  }
+
+  getProductImage(p: any) {
+    if (!p.allImages || p.allImages.length === 0)
+      return this.getImageUrl(p.imageURL);
+    return this.getImageUrl(p.allImages[p.carouselIndex]);
   }
 }

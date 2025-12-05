@@ -1,9 +1,21 @@
-import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, NgZone } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  NgZone,
+} from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { SupabaseService, ReportParams, ReportType, GroupBy } from '../../services/supabase.service';
+import {
+  SupabaseService,
+  ReportParams,
+  ReportType,
+  GroupBy,
+} from '../../services/supabase.service';
 import { AdminAuthService } from '../../services/admin-auth.service';
 import { PopupService } from '../../services/popup.service';
 import { Router } from '@angular/router';
+import { ConfirmService } from '../../services/confirm.service';
 
 type ReportRow = {
   base: string;
@@ -14,11 +26,10 @@ type ReportRow = {
 @Component({
   selector: 'app-reports',
   templateUrl: './reports-page.component.html', // your HTML
-  styleUrls: ['./reports-page.component.css'],   // your CSS (style like Inventory page)
-  changeDetection: ChangeDetectionStrategy.OnPush
+  styleUrls: ['./reports-page.component.css'], // your CSS (style like Inventory page)
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ReportsComponent implements OnInit {
-
   form!: FormGroup;
 
   // UI state
@@ -31,10 +42,15 @@ export class ReportsComponent implements OnInit {
   rows: ReportRow[] = [];
   displayedColumns = ['name', 'actions']; // keep simple; expand in HTML
 
+  showGroupBy = true;
+
   // Option lists
   typeOptions: { label: string; value: ReportType }[] = [
     { label: 'By Orders', value: 'byOrders' },
-    { label: 'By Products', value: 'byProducts' }
+    { label: 'By Products', value: 'byProducts' },
+    { label: 'Report: Customers of Product', value: 'reportCustomer' },
+    { label: 'Report: Order Frequency', value: 'orderFrequencyReport' },
+    { label: 'Report: Frequent Customers', value: 'frequentCustomersReport' },
   ];
 
   ordersGroupByOptions: { label: string; value: GroupBy }[] = [
@@ -42,12 +58,12 @@ export class ReportsComponent implements OnInit {
     { label: 'Customer Name', value: 'name' },
     { label: 'Email', value: 'email' },
     { label: 'Status', value: 'status' },
-    { label: 'Payment Method', value: 'method' }
+    { label: 'Payment Method', value: 'method' },
   ];
 
   productsGroupByOptions: { label: string; value: GroupBy }[] = [
     { label: 'Name (1 row per product)', value: 'name' },
-    { label: 'Active (true/false)', value: 'active' }
+    { label: 'Active (true/false)', value: 'active' },
   ];
 
   get groupByOptions() {
@@ -62,8 +78,9 @@ export class ReportsComponent implements OnInit {
     private cdr: ChangeDetectorRef,
     private zone: NgZone,
     private popup: PopupService,
-    private adminAuthService: AdminAuthService, 
-    private router: Router, 
+    private confirm: ConfirmService,
+    private adminAuthService: AdminAuthService,
+    private router: Router
   ) {}
 
   async ngOnInit() {
@@ -72,7 +89,7 @@ export class ReportsComponent implements OnInit {
       type: ['byOrders' as ReportType, Validators.required],
       from: [this.defaultFromDateISO(), Validators.required],
       to: [this.defaultToDateISO(), Validators.required],
-      groupBy: ['day' as GroupBy, Validators.required]
+      groupBy: ['day' as GroupBy, Validators.required],
     });
 
     // If type changes, this makes sure a valid groupBy is selected for that type
@@ -84,7 +101,9 @@ export class ReportsComponent implements OnInit {
           gbCtrl.setValue('name');
         }
       } else {
-        if (!['day', 'name', 'email', 'status', 'method'].includes(gbCtrl.value)) {
+        if (
+          !['day', 'name', 'email', 'status', 'method'].includes(gbCtrl.value)
+        ) {
           gbCtrl.setValue('day');
         }
       }
@@ -92,7 +111,6 @@ export class ReportsComponent implements OnInit {
 
     this.refreshList();
   }
-
 
   async onGenerate() {
     if (this.form.invalid) {
@@ -102,42 +120,108 @@ export class ReportsComponent implements OnInit {
 
     const { type, from, to, groupBy } = this.form.value;
 
-    // Convert string dates (yyyy-mm-dd) to Date objects for supabase query
-    const params: ReportParams = {
-      type,
-      from: this.asDate(from),
-      to: this.asDate(to, true), 
-      groupBy
-    };
+    let res;
 
-    this.loadingGenerate = true;
-    this.cdr.markForCheck();
+    switch (type) {
+      case 'reportCustomer':
+        console.log('Generating Report: Customers of Product');
+        this.loadingGenerate = true;
+        this.cdr.markForCheck();
+        try {
+          res = await this.reports.generateReportCustomer(from, to);
+          this.zone.run(() => {
+            this.hasGeneratedThisSession = true;
+            this.cdr.markForCheck();
+          });
+          await this.refreshList();
+        } catch (err: any) {
+          console.error(err);
+          this.popup.error(err?.message || 'Failed to generate report.');
+        } finally {
+          this.loadingGenerate = false;
+          this.cdr.markForCheck();
+        }
+        break;
+      case 'orderFrequencyReport':
+        console.log('Generating Report: Order Frequency');
+        this.loadingGenerate = true;
+        this.cdr.markForCheck();
+        try {
+          res = await this.reports.generateOrderFrequencyReport(from, to);
+          this.zone.run(() => {
+            this.hasGeneratedThisSession = true;
+            this.cdr.markForCheck();
+          });
+          await this.refreshList();
+        } catch (err: any) {
+          console.error(err);
+          this.popup.error(err?.message || 'Failed to generate report.');
+        } finally {
+          this.loadingGenerate = false;
+          this.cdr.markForCheck();
+        }
+        break;
+      case 'frequentCustomersReport':
+        console.log('Generating Report: Frequent Customers');
+        this.loadingGenerate = true;
+        this.cdr.markForCheck();
+        try {
+          res = await this.reports.generateFrequentCustomersReport(from, to);
+          this.zone.run(() => {
+            this.hasGeneratedThisSession = true;
+            this.cdr.markForCheck();
+          });
+          await this.refreshList();
+        } catch (err: any) {
+          console.error(err);
+          this.popup.error(err?.message || 'Failed to generate report.');
+        } finally {
+          this.loadingGenerate = false;
+          this.cdr.markForCheck();
+        }
+        break;
+      default:
+        // Convert string dates (yyyy-mm-dd) to Date objects for supabase query
+        const params: ReportParams = {
+          type,
+          from: this.asDate(from),
+          to: this.asDate(to, true),
+          groupBy,
+        };
 
-    try {
-      await this.reports.generateAndStoreReport(params);
-      this.zone.run(() => {
-        this.hasGeneratedThisSession = true;
+        this.loadingGenerate = true;
         this.cdr.markForCheck();
-      })
-      await this.refreshList();
-      // Include pop-up here for success
-    } catch (err: any) {
-      console.error(err);
-      // Include pop-up here for error
-      this.popup.error(err?.message || 'Failed to generate report.');
-    } finally {
-      this.zone.run(() => {
-        this.loadingGenerate = false;
-        this.cdr.markForCheck();
-      })
+
+        try {
+          await this.reports.generateAndStoreReport(params);
+          this.zone.run(() => {
+            this.hasGeneratedThisSession = true;
+            this.cdr.markForCheck();
+          });
+          await this.refreshList();
+          // Include pop-up here for success
+        } catch (err: any) {
+          console.error(err);
+          // Include pop-up here for error
+          this.popup.error(err?.message || 'Failed to generate report.');
+        } finally {
+          this.zone.run(() => {
+            this.loadingGenerate = false;
+            this.cdr.markForCheck();
+          });
+        }
     }
   }
 
   async refreshList() {
-
     // Timeout in case database is unreachable/accidental loops
     const withTimeout = <T>(p: Promise<T>, ms = 15000) =>
-      Promise.race([p, new Promise<T>((_, r) => setTimeout(() => r(new Error('Timed out')), ms))]);
+      Promise.race([
+        p,
+        new Promise<T>((_, r) =>
+          setTimeout(() => r(new Error('Timed out')), ms)
+        ),
+      ]);
 
     this.loadingList = true;
     this.cdr.markForCheck();
@@ -145,9 +229,19 @@ export class ReportsComponent implements OnInit {
     try {
       const data = await withTimeout(this.reports.listReports(200));
       this.zone.run(() => {
-        this.rows = data;
+        this.rows = data.sort((a, b) => {
+          // Extract ALL date matches
+          const datesA = a.base.match(/\d{4}-\d{2}-\d{2}/g) || [];
+          const datesB = b.base.match(/\d{4}-\d{2}-\d{2}/g) || [];
+
+          // Creation date is ALWAYS the last one in the filename
+          const dateA = datesA[datesA.length - 1] || '';
+          const dateB = datesB[datesB.length - 1] || '';
+
+          return new Date(dateB).getTime() - new Date(dateA).getTime();
+        });
         this.cdr.markForCheck();
-      })
+      });
     } catch (err: any) {
       console.error(err);
       // Include pop-up here for error
@@ -199,20 +293,31 @@ export class ReportsComponent implements OnInit {
 
   async onDelete(row: ReportRow) {
     const base = row.base;
-    const confirmMsg = `Delete report "${base}" (CSV and PDF)?`;
-    if (!confirm(confirmMsg)) return; // Include pop-up here for confirmation
+    // const confirmMsg = `Delete report "${base}" (CSV and PDF)?`;
+    // if (!confirm(confirmMsg)) return; // Include pop-up here for confirmation
+    const ok = await this.confirm.confirm({
+      kind: 'danger',
+      title: `Delete report "${base}" (CSV and PDF)?`,
+      message: 'This action cannot be undone.',
+      okText: 'Delete',
+      cancelText: 'Cancel',
+    });
 
-    this.deleting[base] = true;
-    try {
-      await this.reports.deleteReportByBaseName(base);
-      await this.refreshList();
-      // Include pop-up here for success
-    } catch (err: any) {
-      // Include pop-up here for error
-      console.error(err);
-      this.popup.error(err?.message || 'Failed to delete report.');
-    } finally {
-      this.deleting[base] = false;
+    if (ok) {
+      this.deleting[base] = true;
+      try {
+        await this.reports.deleteReportByBaseName(base);
+        await this.refreshList();
+        // Include pop-up here for success
+      } catch (err: any) {
+        // Include pop-up here for error
+        console.error(err);
+        this.popup.error(err?.message || 'Failed to delete report.');
+      } finally {
+        this.deleting[base] = false;
+      }
+
+      this.popup.info('Report deleted.');
     }
   }
 
@@ -259,7 +364,7 @@ export class ReportsComponent implements OnInit {
     return date;
   }
 
-    private async isAdminTokenValid(): Promise<void> {
+  private async isAdminTokenValid(): Promise<void> {
     const adminEmail = localStorage.getItem('email');
     if (!adminEmail) {
       this.adminAuthService.logoutAdmin();
@@ -268,7 +373,10 @@ export class ReportsComponent implements OnInit {
     }
     const adminID = await this.adminAuthService.getAdminIDByEmail(adminEmail);
     const localToken = localStorage.getItem('adminToken');
-    const valid = await this.adminAuthService.isAdminTokenValid(adminID, localToken || undefined);
+    const valid = await this.adminAuthService.isAdminTokenValid(
+      adminID,
+      localToken || undefined
+    );
     if (!valid) {
       this.popup.error('Session expired. Please log in again.');
       this.adminAuthService.logoutAdmin();
@@ -276,5 +384,17 @@ export class ReportsComponent implements OnInit {
     }
 
     this.popup.info('Admin Session valid!'); // Remove later
+  }
+
+  onTypeChange() {
+    const t = this.form.value.type;
+
+    const noGroupByTypes = [
+      'reportCustomer',
+      'orderFrequencyReport',
+      'frequentCustomersReport',
+    ];
+
+    this.showGroupBy = !noGroupByTypes.includes(t);
   }
 }

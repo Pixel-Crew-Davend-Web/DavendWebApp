@@ -10,7 +10,7 @@
 
     <div class="image-overlay-bottom">
       <div class="overlay-text">
-        Precision Punch & Die Manufacturing • CNC Machining • Surface & Centerless Grinding
+        {{servicesNames.join(' | ')}}
       </div>
     </div>
   </div>
@@ -36,7 +36,7 @@
   <div class="services-grid">
 
     <!-- Featured Service (optional) -->
-    <div class="service-card featured" *ngIf="featuredService">
+    <div class="service-card featured" *ngIf="featuredService" (click)="goToServiceRequest(featuredService.title)">
       <h3>{{ featuredService.title }}</h3>
       <p>{{ featuredService.description }}</p>
 

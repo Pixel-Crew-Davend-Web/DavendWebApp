@@ -9,10 +9,9 @@ import { Router } from '@angular/router';
 @Component({
   selector: 'app-manage-services',
   templateUrl: './manage-services.component.html',
-  styleUrls: ['./manage-services.component.css']
+  styleUrls: ['./manage-services.component.css'],
 })
 export class ManageServicesComponent implements OnInit {
-
   readonly DEFAULT_IMAGE_KEY = 'defaults/service-placeholder.jpg';
 
   services: any[] = [];
@@ -41,8 +40,10 @@ export class ManageServicesComponent implements OnInit {
   editErrors = { title: '', description: '' };
 
   // File input references
-  @ViewChild('addReuploadInput') addReuploadInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('editReuploadInput') editReuploadInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('addReuploadInput')
+  addReuploadInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('editReuploadInput')
+  editReuploadInput!: ElementRef<HTMLInputElement>;
 
   private readonly allowedTypes = new Set(['image/jpeg', 'application/pdf']);
 
@@ -84,20 +85,26 @@ export class ManageServicesComponent implements OnInit {
 
   validateEdit() {
     this.editErrors.title = this.validateTitle(this.editingService.title);
-    this.editErrors.description = this.validateDesc(this.editingService.description);
+    this.editErrors.description = this.validateDesc(
+      this.editingService.description
+    );
   }
 
   get addFormValid() {
-    return !this.addErrors.title &&
-           !this.addErrors.description &&
-           this.newService.title.trim().length > 0;
+    return (
+      !this.addErrors.title &&
+      !this.addErrors.description &&
+      this.newService.title.trim().length > 0
+    );
   }
 
   get editFormValid() {
     if (!this.editingService) return false;
-    return !this.editErrors.title &&
-           !this.editErrors.description &&
-           this.editingService.title.trim().length > 0;
+    return (
+      !this.editErrors.title &&
+      !this.editErrors.description &&
+      this.editingService.title.trim().length > 0
+    );
   }
 
   // ---------------- ADMIN SESSION VALIDATION ------------------
@@ -112,7 +119,10 @@ export class ManageServicesComponent implements OnInit {
 
     const adminID = await this.adminAuthService.getAdminIDByEmail(email);
     const token = localStorage.getItem('adminToken');
-    const valid = await this.adminAuthService.isAdminTokenValid(adminID, token || undefined);
+    const valid = await this.adminAuthService.isAdminTokenValid(
+      adminID,
+      token || undefined
+    );
 
     if (!valid) {
       this.popup.error('Session expired.');
@@ -123,9 +133,9 @@ export class ManageServicesComponent implements OnInit {
   }
 
   logout() {
-  this.adminAuthService.logoutAdmin();
-  this.router.navigate(['/login']);
-}
+    this.adminAuthService.logoutAdmin();
+    this.router.navigate(['/login']);
+  }
 
   // ---------------- LOAD SERVICES ------------------
 
@@ -160,7 +170,8 @@ export class ManageServicesComponent implements OnInit {
 
     if (file.type === 'application/pdf') {
       this.addPreviewIsPdf = true;
-      this.addPreviewTrustedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+      this.addPreviewTrustedUrl =
+        this.sanitizer.bypassSecurityTrustResourceUrl(url);
     } else {
       this.addPreviewIsPdf = false;
     }
@@ -216,11 +227,16 @@ export class ManageServicesComponent implements OnInit {
         title: this.newService.title.trim(),
         description: this.newService.description.trim(),
         image_url: finalImage,
-        is_featured: this.newService.is_featured
+        is_featured: this.newService.is_featured,
       });
 
       this.popup.success('Service added.');
-      this.newService = { title: '', description: '', imageURL: '', is_featured: false };
+      this.newService = {
+        title: '',
+        description: '',
+        imageURL: '',
+        is_featured: false,
+      };
       this.addErrors = { title: '', description: '' };
       this.clearAddPreview();
       this.loadServices();
@@ -255,7 +271,8 @@ export class ManageServicesComponent implements OnInit {
 
     if (file.type === 'application/pdf') {
       this.editPreviewIsPdf = true;
-      this.editPreviewTrustedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+      this.editPreviewTrustedUrl =
+        this.sanitizer.bypassSecurityTrustResourceUrl(url);
     } else {
       this.editPreviewIsPdf = false;
     }
@@ -283,23 +300,27 @@ export class ManageServicesComponent implements OnInit {
     }
 
     try {
+      const oldUrl = this.editingService?.image_url || '';
+      const oldFileName = oldUrl.split('/').pop();
+
       let uploadedPath: string | null = null;
 
       if (this.selectedEditFile) {
         uploadedPath = await this.sb.uploadServiceAsset(this.selectedEditFile);
       }
 
-      const finalImage =
-        uploadedPath ??
-        this.editingService.image_url ??
-        this.DEFAULT_IMAGE_KEY;
+      const finalImage = uploadedPath ?? oldUrl ?? this.DEFAULT_IMAGE_KEY;
 
       await this.sb.updateService(this.editingService.id, {
         title: this.editingService.title.trim(),
         description: this.editingService.description.trim(),
         image_url: finalImage,
-        is_featured: this.editingService.is_featured
+        is_featured: this.editingService.is_featured,
       });
+
+      if (uploadedPath && oldFileName) {
+        await this.sb.deleteServiceImage(oldFileName);
+      }
 
       this.popup.success('Service updated.');
       this.editingService = null;
@@ -318,24 +339,24 @@ export class ManageServicesComponent implements OnInit {
   }
 
   cancelAddImage() {
-  // Clear preview state (releases object URL, resets flags)
-  this.clearAddPreview();
+    // Clear preview state (releases object URL, resets flags)
+    this.clearAddPreview();
 
-  // Also clear the file input element so the same file can be reselected
-  if (this.addReuploadInput) {
-    this.addReuploadInput.nativeElement.value = '';
+    // Also clear the file input element so the same file can be reselected
+    if (this.addReuploadInput) {
+      this.addReuploadInput.nativeElement.value = '';
+    }
   }
-}
 
-cancelEditImage() {
-  // Clear edit preview state
-  this.clearEditPreview();
+  cancelEditImage() {
+    // Clear edit preview state
+    this.clearEditPreview();
 
-  // Clear the file input element
-  if (this.editReuploadInput) {
-    this.editReuploadInput.nativeElement.value = '';
+    // Clear the file input element
+    if (this.editReuploadInput) {
+      this.editReuploadInput.nativeElement.value = '';
+    }
   }
-}
 
   // ---------------- DELETE ------------------
 
@@ -344,7 +365,7 @@ cancelEditImage() {
       kind: 'danger',
       title: 'Delete service?',
       message: 'This action cannot be undone.',
-      okText: 'Delete'
+      okText: 'Delete',
     });
 
     if (!confirmed) return;

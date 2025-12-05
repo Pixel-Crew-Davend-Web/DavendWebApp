@@ -2,7 +2,7 @@
   <!-- Top Bar -->
   <header class="topbar">
     <div class="brand">
-      <span class="logo-dot"></span>
+      <img src="assets/comp-nobg.png" alt="company logo">
       <h1>Reports</h1>
     </div>
 
@@ -22,7 +22,7 @@
         <!-- Type -->
         <div class="field">
           <label>Type</label>
-          <select formControlName="type" class="input">
+          <select formControlName="type" class="input" (change)="onTypeChange()">
             <option *ngFor="let opt of typeOptions" [value]="opt.value">
               {{ opt.label }}
             </option>
@@ -42,7 +42,7 @@
         </div>
 
         <!-- Group By (depends on Type) -->
-        <div class="field">
+        <div class="field" *ngIf="showGroupBy">
           <label>Group By</label>
           <select formControlName="groupBy" class="input">
             <option *ngFor="let opt of groupByOptions" [value]="opt.value">
