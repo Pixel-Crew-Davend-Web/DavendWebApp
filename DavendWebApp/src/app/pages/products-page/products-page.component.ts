@@ -80,50 +80,6 @@ export class ProductsPageComponent {
 
     // Slice display list
     this.updatePagination();
-    // const term = (this.searchTerm || '').trim().toLowerCase();
-
-    // let list = this.products.filter((p) => {
-    //   const name = String(p.name || '').toLowerCase();
-    //   const desc = String(p.description || '').toLowerCase();
-    //   return name.includes(term) || desc.includes(term);
-    // });
-
-    // switch (this.selectedFilter) {
-    //   case 'price-asc':
-    //     list = list.sort(
-    //       (a, b) =>
-    //         this.toNum(a.price) - this.toNum(b.price) ||
-    //         String(a.name).localeCompare(String(b.name))
-    //     );
-    //     break;
-    //   case 'price-desc':
-    //     list = list.sort(
-    //       (a, b) =>
-    //         this.toNum(b.price) - this.toNum(a.price) ||
-    //         String(a.name).localeCompare(String(b.name))
-    //     );
-    //     break;
-    //   case 'qty':
-    //     list = list.sort(
-    //       (a, b) =>
-    //         this.toNum(b.qty) - this.toNum(a.qty) ||
-    //         String(a.name).localeCompare(String(b.name))
-    //     );
-    //     break;
-    //   case '':
-    //     list = list.sort((a, b) =>
-    //       String(a.name).localeCompare(String(b.name))
-    //     );
-    //     break;
-    // }
-
-    // const oldById = new Map(
-    //   this.filteredProducts.map((p) => [p.id, this.toNum(p.inputQty) || 1])
-    // );
-    // this.filteredProducts = list.map((p) => ({
-    //   ...p,
-    //   inputQty: oldById.get(p.id) ?? 1,
-    // }));
   }
 
   filterProducts(): void {
