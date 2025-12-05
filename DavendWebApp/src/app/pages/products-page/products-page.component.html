@@ -118,6 +118,26 @@
     </article>
   </div>
 
+  <div class="pagination-container" *ngIf="totalPages > 1">
+    <button
+      class="page-btn"
+      [disabled]="currentPage === 1"
+      (click)="prevPage()"
+    >
+      ‹ Prev
+    </button>
+
+    <span class="page-info"> Page {{ currentPage }} of {{ totalPages }} </span>
+
+    <button
+      class="page-btn"
+      [disabled]="currentPage === totalPages"
+      (click)="nextPage()"
+    >
+      Next ›
+    </button>
+  </div>
+
   <div *ngIf="!filteredProducts.length" class="empty-state card">
     <p>
       No products match your filters. Try clearing the search or changing the

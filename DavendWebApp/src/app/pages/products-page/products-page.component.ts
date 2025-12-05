@@ -13,9 +13,14 @@ type SortKey = '' | 'price-asc' | 'price-desc' | 'qty';
 export class ProductsPageComponent {
   products: any[] = [];
   filteredProducts: any[] = [];
+  filteredProductsFull: any[] = [];
   searchTerm = '';
   productQty = 1;
   selectedFilter: SortKey = '';
+
+  itemsPerPage = 12;
+  currentPage = 1;
+  totalPages = 1;
 
   constructor(
     private productService: ProductService,
@@ -33,6 +38,7 @@ export class ProductsPageComponent {
     });
 
     this.filteredProducts = this.products.map((p) => ({ ...p, inputQty: 1 }));
+    this.applyAllFilters();
   }
 
   toNum(v: any): number {
@@ -41,50 +47,83 @@ export class ProductsPageComponent {
   }
 
   private applyAllFilters(): void {
-    const term = (this.searchTerm || '').trim().toLowerCase();
+    let result = [...this.products];
 
-    let list = this.products.filter((p) => {
-      const name = String(p.name || '').toLowerCase();
-      const desc = String(p.description || '').toLowerCase();
-      return name.includes(term) || desc.includes(term);
-    });
+    // ===== Search filter =====
+    if (this.searchTerm.trim()) {
+      const term = this.searchTerm.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(term) ||
+          p.description.toLowerCase().includes(term)
+      );
+    }
 
+    // ===== Sort filter =====
     switch (this.selectedFilter) {
       case 'price-asc':
-        list = list.sort(
-          (a, b) =>
-            this.toNum(a.price) - this.toNum(b.price) ||
-            String(a.name).localeCompare(String(b.name))
-        );
+        result.sort((a, b) => (a.price || 0) - (b.price || 0));
         break;
       case 'price-desc':
-        list = list.sort(
-          (a, b) =>
-            this.toNum(b.price) - this.toNum(a.price) ||
-            String(a.name).localeCompare(String(b.name))
-        );
+        result.sort((a, b) => (b.price || 0) - (a.price || 0));
         break;
       case 'qty':
-        list = list.sort(
-          (a, b) =>
-            this.toNum(b.qty) - this.toNum(a.qty) ||
-            String(a.name).localeCompare(String(b.name))
-        );
-        break;
-      case '':
-        list = list.sort((a, b) =>
-          String(a.name).localeCompare(String(b.name))
-        );
+        result.sort((a, b) => (b.qty || 0) - (a.qty || 0));
         break;
     }
 
-    const oldById = new Map(
-      this.filteredProducts.map((p) => [p.id, this.toNum(p.inputQty) || 1])
-    );
-    this.filteredProducts = list.map((p) => ({
-      ...p,
-      inputQty: oldById.get(p.id) ?? 1,
-    }));
+    // Save full filtered list
+    this.filteredProductsFull = result;
+
+    // Reset page when filters/search change
+    this.currentPage = 1;
+
+    // Slice display list
+    this.updatePagination();
+    // const term = (this.searchTerm || '').trim().toLowerCase();
+
+    // let list = this.products.filter((p) => {
+    //   const name = String(p.name || '').toLowerCase();
+    //   const desc = String(p.description || '').toLowerCase();
+    //   return name.includes(term) || desc.includes(term);
+    // });
+
+    // switch (this.selectedFilter) {
+    //   case 'price-asc':
+    //     list = list.sort(
+    //       (a, b) =>
+    //         this.toNum(a.price) - this.toNum(b.price) ||
+    //         String(a.name).localeCompare(String(b.name))
+    //     );
+    //     break;
+    //   case 'price-desc':
+    //     list = list.sort(
+    //       (a, b) =>
+    //         this.toNum(b.price) - this.toNum(a.price) ||
+    //         String(a.name).localeCompare(String(b.name))
+    //     );
+    //     break;
+    //   case 'qty':
+    //     list = list.sort(
+    //       (a, b) =>
+    //         this.toNum(b.qty) - this.toNum(a.qty) ||
+    //         String(a.name).localeCompare(String(b.name))
+    //     );
+    //     break;
+    //   case '':
+    //     list = list.sort((a, b) =>
+    //       String(a.name).localeCompare(String(b.name))
+    //     );
+    //     break;
+    // }
+
+    // const oldById = new Map(
+    //   this.filteredProducts.map((p) => [p.id, this.toNum(p.inputQty) || 1])
+    // );
+    // this.filteredProducts = list.map((p) => ({
+    //   ...p,
+    //   inputQty: oldById.get(p.id) ?? 1,
+    // }));
   }
 
   filterProducts(): void {
@@ -93,6 +132,30 @@ export class ProductsPageComponent {
 
   onFilterChange(): void {
     this.applyAllFilters();
+  }
+
+  updatePagination() {
+    const total = this.filteredProductsFull.length;
+    this.totalPages = Math.ceil(total / this.itemsPerPage);
+
+    const start = (this.currentPage - 1) * this.itemsPerPage;
+    const end = start + this.itemsPerPage;
+
+    this.filteredProducts = this.filteredProductsFull.slice(start, end);
+  }
+
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.updatePagination();
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.updatePagination();
+    }
   }
 
   getImageUrl(fileName: string): string {
