@@ -234,3 +234,67 @@
   font-size: 1.1rem;
   font-weight: 600;
 }
+
+.carousel-wrapper {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.carousel-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.4);
+  border: none;
+  color: white;
+  font-size: 22px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.nav-arrow.left {
+  left: 5px;
+}
+
+.nav-arrow.right {
+  right: 5px;
+}
+
+.nav-arrow:hover {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.fade-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.fade-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 0.3s ease-in-out;
+  opacity: 1;
+  display: block;
+}
+
+.fade-image.fade-out {
+  opacity: 0;
+}
+
+.fade-image.fade-in {
+  opacity: 1;
+}

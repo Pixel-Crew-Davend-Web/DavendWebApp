@@ -29,16 +29,29 @@ export class ProductsPageComponent {
   ) {}
 
   async ngOnInit() {
-    const data = await this.supabase.getAllProductsWithVariants();
-    this.products = data;
+    const prods = await this.supabase.getAllProductsWithVariants();
+
+    // Attach additional images + carousel index
+    for (const p of prods) {
+      const extras = await this.supabase.getProductImages(p.id);
+
+      p.allImages = [
+        p.imageURL, // main
+        ...extras.map((e) => e.image_path),
+      ];
+
+      p.carouselIndex = 0; // default image
+      p.fadeState = 'in';
+    }
+
     this.products.forEach((p) => {
       if (p.ProductVariants?.length) {
         p.selectedVariant = p.ProductVariants[0];
       }
     });
 
+    this.products = prods;
     this.filteredProducts = this.products.map((p) => ({ ...p, inputQty: 1 }));
-    this.applyAllFilters();
   }
 
   toNum(v: any): number {
@@ -137,5 +150,34 @@ export class ProductsPageComponent {
       this.popup.error('Failed to add product to cart.');
       console.error('Error adding product to cart:', e);
     }
+  }
+
+  nextImage(p: any) {
+    if (!p.allImages) return;
+
+    p.fadeState = 'out';
+
+    setTimeout(() => {
+      p.carouselIndex = (p.carouselIndex + 1) % p.allImages.length;
+      p.fadeState = 'in';
+    }, 150); // duration matches CSS fade-out
+  }
+
+  prevImage(p: any) {
+    if (!p.allImages) return;
+
+    p.fadeState = 'out';
+
+    setTimeout(() => {
+      p.carouselIndex =
+        (p.carouselIndex - 1 + p.allImages.length) % p.allImages.length;
+      p.fadeState = 'in';
+    }, 150);
+  }
+
+  getProductImage(p: any) {
+    if (!p.allImages || p.allImages.length === 0)
+      return this.getImageUrl(p.imageURL);
+    return this.getImageUrl(p.allImages[p.carouselIndex]);
   }
 }
