@@ -52,7 +52,6 @@ export interface DbOrderWithItems extends DbOrder {
   itemsSummary?: string | null;
 }
 
-
 @Injectable({
   providedIn: 'root',
 })
@@ -368,13 +367,12 @@ export class SupabaseService {
   }
 
   async getVariantByID(id: string) {
-  return this.supabase
-    .from('ProductVariants')
-    .select('*, Products(*)')   // fetch parent product for image + name
-    .eq('id', id)
-    .single();
-}
-
+    return this.supabase
+      .from('ProductVariants')
+      .select('*, Products(*)') // fetch parent product for image + name
+      .eq('id', id)
+      .single();
+  }
 
   async getAllProductsWithVariants() {
     const { data, error } = await this.supabase
@@ -473,7 +471,7 @@ export class SupabaseService {
     // 5) Attach "itemsSummary" to each order
     return orders.map((o) => {
       const key = (o.draft_id || '').trim();
-      const summary = (key && byOrder[key]) ? byOrder[key].join(', ') : '';
+      const summary = key && byOrder[key] ? byOrder[key].join(', ') : '';
 
       return {
         ...o,
@@ -482,7 +480,7 @@ export class SupabaseService {
     });
   }
 
-    async updateOrderStatus(draftId: string, dbStatus: string): Promise<void> {
+  async updateOrderStatus(draftId: string, dbStatus: string): Promise<void> {
     const id = (draftId || '').trim();
     if (!id) {
       throw new Error('Missing order draft_id for update');
@@ -501,7 +499,6 @@ export class SupabaseService {
       throw error;
     }
   }
-
 
   async fetchOrderWithItems(
     draftId: string
@@ -920,5 +917,43 @@ export class SupabaseService {
 
     if (error) throw error;
     return filePath;
+  }
+
+  async getServiceImages() {
+    const { data, error } = await this.supabase.storage
+      .from('service-images')
+      .list('', { limit: 100, offset: 0 });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async deleteServiceImage(filePath: string) {
+    const { error } = await this.supabase.storage
+      .from('service-images')
+      .remove([filePath]);
+    if (error) throw error;
+  }
+
+  async getProductImges() {
+    const { data, error } = await this.supabase.storage
+      .from('product-images')
+      .list('', { limit: 100, offset: 0 });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getProductsImageUrl() {
+    const { data, error } = await this.supabase
+      .from('Products')
+      .select('imageURL');
+    if (error) throw error;
+    return data || [];
+  }
+
+  async deleteProductImage(filePath: string) {
+    const { error } = await this.supabase.storage
+      .from('product-images')
+      .remove([filePath]);
+    if (error) throw error;
   }
 }

@@ -464,6 +464,9 @@ export class ManageInventoryComponent implements OnInit {
     }
 
     try {
+      const oldUrl = this.editingProduct?.imageURL || '';
+      const oldFileName = oldUrl.split('/').pop(); // e.g. "123-file.jpg"
+
       let uploadedPath: string | null = null;
 
       if (this.selectedEditFile) {
@@ -476,9 +479,7 @@ export class ManageInventoryComponent implements OnInit {
         );
       }
 
-      const existing = (this.editingProduct?.imageURL ?? '').trim();
-      const finalImageUrl =
-        uploadedPath ?? (existing || this.DEFAULT_IMAGE_KEY);
+      const finalImageUrl = uploadedPath ?? oldUrl ?? this.DEFAULT_IMAGE_KEY;
 
       await this.productService.updateProduct(
         String(this.editingProduct.id),
@@ -488,6 +489,10 @@ export class ManageInventoryComponent implements OnInit {
         Number(this.editingProduct.qty),
         finalImageUrl
       );
+
+      if (uploadedPath && oldFileName) {
+        await this.supabaseService.deleteProductImage(oldFileName);
+      }
 
       this.popup.success('Product updated successfully.');
 
