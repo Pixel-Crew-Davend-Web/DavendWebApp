@@ -230,9 +230,15 @@ export class ReportsComponent implements OnInit {
       const data = await withTimeout(this.reports.listReports(200));
       this.zone.run(() => {
         this.rows = data.sort((a, b) => {
-          const dateStrB = b.base.match(/\d{4}-\d{2}-\d{2}/)?.[0] || '';
-          const dateStrA = a.base.match(/\d{4}-\d{2}-\d{2}/)?.[0] || '';
-          return new Date(dateStrB).getTime() - new Date(dateStrA).getTime();
+          // Extract ALL date matches
+          const datesA = a.base.match(/\d{4}-\d{2}-\d{2}/g) || [];
+          const datesB = b.base.match(/\d{4}-\d{2}-\d{2}/g) || [];
+
+          // Creation date is ALWAYS the last one in the filename
+          const dateA = datesA[datesA.length - 1] || '';
+          const dateB = datesB[datesB.length - 1] || '';
+
+          return new Date(dateB).getTime() - new Date(dateA).getTime();
         });
         this.cdr.markForCheck();
       });
