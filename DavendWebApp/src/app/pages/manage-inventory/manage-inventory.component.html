@@ -464,6 +464,73 @@
         style="display: none"
       />
 
+      <section class="product-images-section" *ngIf="editingProduct">
+        <h4>Additional Images</h4>
+
+        <!-- Hidden file picker -->
+        <input
+          #additionalImagesInput
+          type="file"
+          multiple
+          accept="image/jpeg,image/png"
+          style="display: none"
+          (change)="onSelectAdditionalImages($event)"
+        />
+
+        <!-- Buttons -->
+        <div class="row-actions">
+          <button
+            class="btn btn-secondary"
+            (click)="triggerAdditionalImageSelect()"
+          >
+            📸 Select Images
+          </button>
+
+          <button
+            class="btn btn-primary"
+            (click)="uploadSelectedAdditionalImages()"
+            [disabled]="!pendingAdditionalFiles.length"
+          >
+            ⏫ Upload Selected ({{ pendingAdditionalFiles.length }})
+          </button>
+        </div>
+
+        <!-- Previews for selected images BEFORE upload -->
+        <div class="image-grid" *ngIf="pendingAdditionalFiles.length">
+          <div *ngFor="let file of pendingAdditionalFiles" class="image-item">
+            <img [src]="file.preview" class="extra-img-preview" />
+            <p class="muted">{{ file.file.name }}</p>
+          </div>
+        </div>
+
+        <hr />
+
+        <!-- Display already stored images -->
+        <h4>Existing Images</h4>
+
+        <div
+          class="image-grid"
+          *ngIf="editingProductImages && editingProductImages.length"
+        >
+          <div *ngFor="let img of editingProductImages" class="image-item">
+            <img
+              [src]="getImageUrl(img.image_path)"
+              class="extra-img-preview"
+            />
+            <button
+              class="btn btn-danger small"
+              (click)="deleteAdditionalImage(img)"
+            >
+              🗑 Delete
+            </button>
+          </div>
+        </div>
+
+        <p class="muted" *ngIf="editingProductImages?.length === 0">
+          No additional images uploaded yet.
+        </p>
+      </section>
+
       <div class="actions row-actions">
         <button
           class="btn btn-primary"

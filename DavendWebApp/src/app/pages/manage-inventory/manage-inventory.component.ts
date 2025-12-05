@@ -34,6 +34,12 @@ export class ManageInventoryComponent implements OnInit {
   editPreviewIsPdf = false;
   editPreviewTrustedUrl: SafeResourceUrl | null = null;
 
+  editingProductImages: any[] = [];
+  pendingAdditionalFiles: { file: File; preview: string }[] = [];
+
+  @ViewChild('additionalImagesInput', { static: false })
+  additionalImagesInput!: ElementRef<HTMLInputElement>;
+
   variants: any[] = [];
   selectedProductForVariant: any = null;
 
@@ -187,6 +193,79 @@ export class ManageInventoryComponent implements OnInit {
   async editProduct(product: any) {
     this.editingProduct = { ...product }; // Clone product for editing
     this.validateEdit();
+
+    this.editingProductImages = await this.supabaseService.getProductImages(
+      product.id
+    );
+  }
+
+  async handleAdditionalImagesUpload(event: any) {
+    const files = event.target.files as FileList;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      const imagePath = await this.supabaseService.uploadAdditionalProductImage(
+        file
+      );
+
+      await this.supabaseService.addProductImage(
+        this.editingProduct.id,
+        imagePath
+      );
+    }
+
+    // refresh
+    this.editingProductImages = await this.supabaseService.getProductImages(
+      this.editingProduct.id
+    );
+
+    this.popup.success('Images uploaded!');
+  }
+
+  async deleteAdditionalImage(img: any) {
+    await this.supabaseService.deleteProductImageRecord(img.id, img.image_path);
+
+    this.editingProductImages = await this.supabaseService.getProductImages(
+      this.editingProduct.id
+    );
+
+    this.popup.success('Image deleted.');
+  }
+
+  onSelectAdditionalImages(event: any) {
+    const files = event.target.files as FileList;
+    this.pendingAdditionalFiles = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const preview = URL.createObjectURL(file);
+
+      this.pendingAdditionalFiles.push({ file, preview });
+    }
+
+    this.popup.info(`${files.length} image(s) selected.`);
+  }
+
+  async uploadSelectedAdditionalImages() {
+    if (!this.pendingAdditionalFiles.length || !this.editingProduct) return;
+
+    for (const item of this.pendingAdditionalFiles) {
+      const imagePath = await this.supabaseService.uploadAdditionalProductImage(
+        item.file
+      );
+      await this.supabaseService.addProductImage(
+        this.editingProduct.id,
+        imagePath
+      );
+    }
+
+    this.pendingAdditionalFiles = [];
+    this.editingProductImages = await this.supabaseService.getProductImages(
+      this.editingProduct.id
+    );
+
+    this.popup.success('Images uploaded!');
   }
 
   async addVariant() {
@@ -369,6 +448,10 @@ export class ManageInventoryComponent implements OnInit {
     if (this.editReuploadInput) {
       this.editReuploadInput.nativeElement.click();
     }
+  }
+
+  triggerAdditionalImageSelect() {
+    this.additionalImagesInput.nativeElement.click();
   }
 
   cancelEditImage() {

@@ -543,6 +543,47 @@ export class SupabaseService {
     };
   }
 
+  async uploadAdditionalProductImage(file: File): Promise<string> {
+    const ext = file.name.split('.').pop();
+    const fileName = `${crypto.randomUUID()}.${ext}`;
+
+    const { error } = await this.supabase.storage
+      .from('product-images')
+      .upload(fileName, file);
+
+    if (error) throw error;
+
+    return fileName; // returns the storage path
+  }
+
+  async addProductImage(productId: string, imagePath: string) {
+    const { data, error } = await this.supabase
+      .from('productimages')
+      .insert({ product_id: productId, image_path: imagePath });
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getProductImages(productId: string) {
+    const { data, error } = await this.supabase
+      .from('productimages')
+      .select('*')
+      .eq('product_id', productId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async deleteProductImageRecord(id: string, imagePath: string) {
+    // delete from bucket
+    await this.supabase.storage.from('product-images').remove([imagePath]);
+
+    // delete from DB
+    return this.supabase.from('productimages').delete().eq('id', id);
+  }
+
   async generateAndStoreReport(
     params: ReportParams
   ): Promise<GeneratedReportInfo> {
