@@ -42,10 +42,15 @@ export class ReportsComponent implements OnInit {
   rows: ReportRow[] = [];
   displayedColumns = ['name', 'actions']; // keep simple; expand in HTML
 
+  showGroupBy = true;
+
   // Option lists
   typeOptions: { label: string; value: ReportType }[] = [
     { label: 'By Orders', value: 'byOrders' },
     { label: 'By Products', value: 'byProducts' },
+    { label: 'Report: Customers of Product', value: 'reportCustomer' },
+    { label: 'Report: Order Frequency', value: 'orderFrequencyReport' },
+    { label: 'Report: Frequent Customers', value: 'frequentCustomersReport' },
   ];
 
   ordersGroupByOptions: { label: string; value: GroupBy }[] = [
@@ -115,34 +120,96 @@ export class ReportsComponent implements OnInit {
 
     const { type, from, to, groupBy } = this.form.value;
 
-    // Convert string dates (yyyy-mm-dd) to Date objects for supabase query
-    const params: ReportParams = {
-      type,
-      from: this.asDate(from),
-      to: this.asDate(to, true),
-      groupBy,
-    };
+    let res;
 
-    this.loadingGenerate = true;
-    this.cdr.markForCheck();
+    switch (type) {
+      case 'reportCustomer':
+        console.log('Generating Report: Customers of Product');
+        this.loadingGenerate = true;
+        this.cdr.markForCheck();
+        try {
+          res = await this.reports.generateReportCustomer(from, to);
+          this.zone.run(() => {
+            this.hasGeneratedThisSession = true;
+            this.cdr.markForCheck();
+          });
+          await this.refreshList();
+        } catch (err: any) {
+          console.error(err);
+          this.popup.error(err?.message || 'Failed to generate report.');
+        } finally {
+          this.loadingGenerate = false;
+          this.cdr.markForCheck();
+        }
+        break;
+      case 'orderFrequencyReport':
+        console.log('Generating Report: Order Frequency');
+        this.loadingGenerate = true;
+        this.cdr.markForCheck();
+        try {
+          res = await this.reports.generateOrderFrequencyReport(from, to);
+          this.zone.run(() => {
+            this.hasGeneratedThisSession = true;
+            this.cdr.markForCheck();
+          });
+          await this.refreshList();
+        } catch (err: any) {
+          console.error(err);
+          this.popup.error(err?.message || 'Failed to generate report.');
+        } finally {
+          this.loadingGenerate = false;
+          this.cdr.markForCheck();
+        }
+        break;
+      case 'frequentCustomersReport':
+        console.log('Generating Report: Frequent Customers');
+        this.loadingGenerate = true;
+        this.cdr.markForCheck();
+        try {
+          res = await this.reports.generateFrequentCustomersReport(from, to);
+          this.zone.run(() => {
+            this.hasGeneratedThisSession = true;
+            this.cdr.markForCheck();
+          });
+          await this.refreshList();
+        } catch (err: any) {
+          console.error(err);
+          this.popup.error(err?.message || 'Failed to generate report.');
+        } finally {
+          this.loadingGenerate = false;
+          this.cdr.markForCheck();
+        }
+        break;
+      default:
+        // Convert string dates (yyyy-mm-dd) to Date objects for supabase query
+        const params: ReportParams = {
+          type,
+          from: this.asDate(from),
+          to: this.asDate(to, true),
+          groupBy,
+        };
 
-    try {
-      await this.reports.generateAndStoreReport(params);
-      this.zone.run(() => {
-        this.hasGeneratedThisSession = true;
+        this.loadingGenerate = true;
         this.cdr.markForCheck();
-      });
-      await this.refreshList();
-      // Include pop-up here for success
-    } catch (err: any) {
-      console.error(err);
-      // Include pop-up here for error
-      this.popup.error(err?.message || 'Failed to generate report.');
-    } finally {
-      this.zone.run(() => {
-        this.loadingGenerate = false;
-        this.cdr.markForCheck();
-      });
+
+        try {
+          await this.reports.generateAndStoreReport(params);
+          this.zone.run(() => {
+            this.hasGeneratedThisSession = true;
+            this.cdr.markForCheck();
+          });
+          await this.refreshList();
+          // Include pop-up here for success
+        } catch (err: any) {
+          console.error(err);
+          // Include pop-up here for error
+          this.popup.error(err?.message || 'Failed to generate report.');
+        } finally {
+          this.zone.run(() => {
+            this.loadingGenerate = false;
+            this.cdr.markForCheck();
+          });
+        }
     }
   }
 
@@ -162,7 +229,11 @@ export class ReportsComponent implements OnInit {
     try {
       const data = await withTimeout(this.reports.listReports(200));
       this.zone.run(() => {
-        this.rows = data;
+        this.rows = data.sort((a, b) => {
+          const dateStrB = b.base.match(/\d{4}-\d{2}-\d{2}/)?.[0] || '';
+          const dateStrA = a.base.match(/\d{4}-\d{2}-\d{2}/)?.[0] || '';
+          return new Date(dateStrB).getTime() - new Date(dateStrA).getTime();
+        });
         this.cdr.markForCheck();
       });
     } catch (err: any) {
@@ -307,5 +378,17 @@ export class ReportsComponent implements OnInit {
     }
 
     this.popup.info('Admin Session valid!'); // Remove later
+  }
+
+  onTypeChange() {
+    const t = this.form.value.type;
+
+    const noGroupByTypes = [
+      'reportCustomer',
+      'orderFrequencyReport',
+      'frequentCustomersReport',
+    ];
+
+    this.showGroupBy = !noGroupByTypes.includes(t);
   }
 }
