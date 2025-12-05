@@ -1,5 +1,6 @@
 import { Component, HostListener } from '@angular/core';
 import { SupabaseService } from '../../services/supabase.service';
+import { Router } from '@angular/router';
 
 interface ServiceItem {
   id: string;
@@ -23,7 +24,7 @@ export class LandingPageComponent {
   // Scroll indicator visibility
   showScrollIndicator = true;
 
-  constructor(private supabase: SupabaseService) {}
+  constructor(private supabase: SupabaseService, private router: Router) {}
 
   // Smooth scroll when clicking the indicator
   scrollDown() {
@@ -53,5 +54,11 @@ export class LandingPageComponent {
   private updateIndicator() {
     const scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
     this.showScrollIndicator = scrollTop < 100;
+  }
+
+  goToServiceRequest(serviceName: string) {
+    this.router.navigate(['/service-request'], {
+      queryParams: { service: serviceName },
+    });
   }
 }
