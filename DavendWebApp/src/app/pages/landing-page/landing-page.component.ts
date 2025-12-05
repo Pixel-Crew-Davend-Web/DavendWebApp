@@ -17,6 +17,7 @@ interface ServiceItem {
 export class LandingPageComponent {
 
   services: ServiceItem[] = [];
+  servicesNames: string[] = [];
   featuredService: ServiceItem | null = null;
 
   // Scroll indicator visibility
@@ -39,6 +40,7 @@ export class LandingPageComponent {
     if (data) {
       this.featuredService = data.find((s) => s.is_featured) ?? null;
       this.services = data.filter((s) => !s.is_featured);
+      this.servicesNames = data.map(s => s.title);
     }
   }
 
