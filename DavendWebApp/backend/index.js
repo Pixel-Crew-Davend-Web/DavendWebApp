@@ -140,9 +140,9 @@ async function paypalGenerateAccessToken() {
 
     method: "POST",
     headers: {
-      Authorization: `Basic ${auth}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+      Authorization: `Bearer ${await paypalGenerateAccessToken()}`,
+      "Content-Type": "application/json",
+},
     body: "grant_type=client_credentials",
   });
 
