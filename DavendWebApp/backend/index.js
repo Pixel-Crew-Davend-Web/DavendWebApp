@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 import cors from "cors";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
+import cron from "node-cron";
 import multer from "multer";
 import paypal from "@paypal/checkout-server-sdk";
 import Stripe from "stripe";
@@ -57,29 +58,101 @@ app.use(
   })
 );
 
-//helper
-async function decrementInventory(orderId) {
-  const { data: items, error: itemErr } = await supabase
-    .from("OrderItems")
-    .select("product_id, qty")
-    .eq("order_id", orderId);
+//helpers
+async function decrementInventory(item) {
+  const pid = item.product_id;
+  const qty = Number(item.qty) || 1;
 
-  if (itemErr) throw itemErr;
-  if (!items || items.length === 0) return;
+  // 1) Check if this is a VARIANT
+  const { data: variant, error: variantErr } = await supabase
+    .from("ProductVariants")
+    .select("id")
+    .eq("id", pid)
+    .maybeSingle();
 
-  for (const it of items) {
-    if (!it.product_id || !it.qty) continue;
-
-    const { error: decErr } = await supabase.rpc(
-      "decrement_product_qty",
-      { pid: it.product_id, amount: it.qty }
-    );
-
-    if (decErr) {
-      console.error(`Inventory update failed for ${it.product_id}:`, decErr);
-    }
+  if (variant && !variantErr) {
+    console.log(`→ Decrementing VARIANT ${pid} by ${qty}`);
+    const { error } = await supabase.rpc("decrement_variant_qty", {
+      vid: pid,
+      amount: qty,
+    });
+    if (error) console.error("❌ Variant decrement failed:", error);
+    return;
   }
+
+  // 2) Otherwise, decrement PRODUCT
+  console.log(`→ Decrementing PRODUCT ${pid} by ${qty}`);
+  const { error: prodErr } = await supabase.rpc("decrement_product_qty", {
+    pid,
+    amount: qty,
+  });
+  if (prodErr) console.error("❌ Product decrement failed:", prodErr);
 }
+
+async function fetchAnyProductOrVariant(id) {
+  // Try variant first
+  const { data: variant } = await supabase
+    .from("ProductVariants")
+    .select(`
+      id,
+      price,
+      size,
+      length_value,
+      product_id,
+      Products ( name )
+    `)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (variant) {
+    // ALWAYS compute unit_amount from numeric price
+    const priceCents = Math.round(Number(variant.price) * 100);
+
+    if (!(priceCents > 0)) {
+      throw new Error(`Invalid variant price for id ${id}`);
+    }
+
+    return {
+      id: variant.id,
+      name: `${variant.Products?.name} (${variant.size} - ${variant.length_value})`,
+      unit_amount: priceCents,
+      product_id: variant.product_id
+    };
+  }
+
+  // fallback → normal product
+  return await fetchProduct(id);
+}
+
+async function paypalGenerateAccessToken() {
+  const clientId = process.env.PAYPAL_CLIENT_ID;
+  const secret = process.env.PAYPAL_CLIENT_SECRET;
+
+  if (!clientId || !secret) {
+    throw new Error("Missing PayPal credentials in env");
+  }
+
+  const auth = Buffer.from(`${clientId}:${secret}`).toString("base64");
+
+  const res = await fetch("https://api-m.sandbox.paypal.com/v1/oauth2/token", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("❌ PayPal token error:", errText);
+    throw new Error("Failed to generate PayPal access token");
+  }
+
+  const data = await res.json();
+  return data.access_token;
+}
+
 
 async function fetchProduct(productIdRaw) {
   const productId = String(productIdRaw || "").trim();
@@ -104,62 +177,10 @@ async function fetchProduct(productIdRaw) {
   return { id: data.id, name: data.name ?? `Item ${productId}`, unit_amount };
 }
 
-async function computeEtransfer(items) {
-  let totalCents = 0;
-  const normalized = [];
-  for (const it of items || []) {
-    const p = await fetchProduct(it.id);
-    const qty = Number(it.qty) || 1;
-    totalCents += p.unit_amount * qty;
-    normalized.push({
-      product_id: p.id,
-      name: it.name || p.name,
-      price: p.unit_amount / 100,
-      qty,
-    });
-  }
-  return { totalCents, normalizedItems: normalized };
-}
-
-async function buildStripeLineItems(items) {
-  const rows = await Promise.all(
-    (items || []).map(async (it) => {
-      const p = await fetchProduct(it.id);
-
-      return {
-        quantity: Number(it.qty) || 1,
-        price_data: {
-          currency: "cad",
-          unit_amount: p.unit_amount,  // integer cents
-          product_data: {
-            name: p.name,
-            metadata: {
-              product_id: p.id
-            }
-          }
-        }
-      };
-    })
-  );
-
-  return rows;
-}
-
-async function insertOrder(order) {
-  const { data, error } = await supabase.from("Orders").insert(order).select().single();
-  if (error) throw error;
-  return data;
-}
-
 async function upsertOrder(order) {
   const { data, error } = await supabase.from("Orders").upsert(order, { onConflict: "draft_id" }).select().single();
   if (error) throw error;
   return data;
-}
-
-async function insertItem(item) {
-  const { error } = await supabase.from("OrderItems").insert(item);
-  if (error) throw error;
 }
 
 /* ---------- Stripe webhook (raw body) ---------- */
@@ -191,7 +212,8 @@ app.post(
       const s = event.data.object;
 
       /* -------------------- SAVE / UPSERT ORDER -------------------- */
-      const orderDraftId = s?.metadata?.orderDraftId ?? s?.metadata?.draft_id ?? null;
+      const orderDraftId =
+        s?.metadata?.orderDraftId ?? s?.metadata?.draft_id ?? null;
 
       if (!orderDraftId) {
         console.error("❌ Missing draft_id in Stripe metadata");
@@ -230,20 +252,34 @@ app.post(
       }
 
       if (!Array.isArray(rawItems) || rawItems.length === 0) {
-        console.warn("⚠ No cart items in Stripe metadata for draft:", orderDraftId);
+        console.warn(
+          "⚠ No cart items in Stripe metadata for draft:",
+          orderDraftId
+        );
       } else {
         console.log(
           `🧾 Rebuilding ${rawItems.length} Stripe items from metadata for order ${orderDraftId}`
         );
       }
 
-      // Normalize items & prices using same helper as e-transfer
+      // ✅ Normalize items & prices using variant-aware helper
       let normalizedItems = [];
       try {
-        const { normalizedItems: norm } = await computeEtransfer(rawItems);
-        normalizedItems = norm;
+        for (const it of rawItems) {
+          // Just in case tax ever gets into metadata – skip it
+          if (it.name === "HST (13%)") continue;
+
+          const p = await fetchAnyProductOrVariant(it.id);
+
+          normalizedItems.push({
+            product_id: p.id,             // product OR variant ID
+            name: p.name,                 // variant-aware display name
+            qty: Number(it.qty ?? 1),
+            price: p.unit_amount / 100,   // unit price in dollars
+          });
+        }
       } catch (e) {
-        console.error("❌ computeEtransfer failed for Stripe:", e);
+        console.error("❌ Stripe normalization failed:", e);
         normalizedItems = [];
       }
 
@@ -265,7 +301,7 @@ app.post(
         for (const ni of normalizedItems) {
           const row = {
             order_id: orderDraftId,
-            product_id: ni.product_id, // guaranteed from fetchProduct()
+            product_id: ni.product_id,
             name: ni.name,
             price: ni.price,
             qty: ni.qty,
@@ -285,7 +321,7 @@ app.post(
         console.error("❌ Stripe OrderItems block failed:", e);
       }
 
-      /* -------------------- UPDATE INVENTORY -------------------- */
+      /* -------------------- UPDATE INVENTORY (PRODUCTS + VARIANTS) -------------------- */
       console.log("🔥 Updating inventory for Stripe...");
 
       const { data: orderItems, error: oiErr } = await supabase
@@ -299,29 +335,8 @@ app.post(
           oiErr
         );
       } else {
-        for (const it of orderItems) {
-          if (!it.product_id) continue;
-
-          console.log(
-            `   → Decreasing qty for product ${it.product_id} by ${it.qty}`
-          );
-
-          const { error: decErr } = await supabase.rpc(
-            "decrement_product_qty",
-            {
-              pid: it.product_id,
-              amount: it.qty,
-            }
-          );
-
-          if (decErr) {
-            console.error(
-              `❌ Inventory decrement failed for ${it.product_id}:`,
-              decErr
-            );
-          } else {
-            console.log(`✔ Inventory updated for ${it.product_id}`);
-          }
+        for (const it of orderItems || []) {
+          await decrementInventory(it);
         }
       }
 
@@ -334,8 +349,8 @@ app.post(
 );
 console.log("🔥 Stripe webhook mounted");
 
-
 app.use(bodyParser.json());
+
 
 
 
@@ -348,15 +363,72 @@ app.get("/", (_req, res) =>
 );
 
 console.log("🚦 Stripe + PayPal + Etransfer routes loading");
-
 /* ---------- Stripe (card) ---------- */
 app.post(
   "/api/payments/checkout-session",
   asyncHandler(async (req, res) => {
     try {
       const { items = [], customer = {}, orderDraftId = "" } = req.body;
-      const line_items = await buildStripeLineItems(items);
 
+      // ============================================================
+      // 1) Build Stripe line items AND calculate subtotal
+      // ============================================================
+      let subtotalCents = 0;
+      const normalizedItems = [];
+      const line_items = [];
+
+      for (const it of items) {
+        const p = await fetchAnyProductOrVariant(it.id); // supports variants & products
+
+        const qty = Number(it.qty ?? 1);
+        const unitCents = p.unit_amount; // already cents
+
+        subtotalCents += unitCents * qty;
+
+        // For webhook reconstruction
+        normalizedItems.push({
+          id: it.id,
+          qty,
+          name: p.name,
+          unitPrice: unitCents / 100,
+        });
+
+        // Stripe Checkout: one line per product
+        line_items.push({
+          quantity: qty,
+          price_data: {
+            currency: "cad",
+            unit_amount: unitCents,
+            product_data: {
+              name: p.name,
+              metadata: {
+                product_id: p.id,
+                variant_parent: p.product_id ?? null
+              }
+            }
+          }
+        });
+      }
+
+      // ============================================================
+      // 2) Apply 13% tax as a separate line item
+      // ============================================================
+      const taxCents = Math.round(subtotalCents * 0.13);
+
+      line_items.push({
+        quantity: 1,
+        price_data: {
+          currency: "cad",
+          unit_amount: taxCents,
+          product_data: {
+            name: "HST (13%)"
+          }
+        }
+      });
+
+      // ============================================================
+      // 3) Create Stripe Checkout Session
+      // ============================================================
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
         payment_method_types: ["card"],
@@ -372,94 +444,90 @@ app.post(
           city: customer.city ?? "",
           postalCode: customer.postalCode ?? "",
           message: customer.message ?? "",
-          items: JSON.stringify(items), // 👈 critical for webhook reconstruction
+         items: JSON.stringify(normalizedItems),
+          subtotal: (subtotalCents / 100).toFixed(2),
+          tax: (taxCents / 100).toFixed(2),
+          total: ((subtotalCents + taxCents) / 100).toFixed(2),
         },
       });
 
       return res.json({ id: session.id });
     } catch (err) {
-      if (String(err?.message || "").startsWith("Product not found:")) {
-        return res.status(404).send("Product not found");
-      }
       console.error("❌ checkout-session failed:", err);
       return res.status(500).send("Internal server error");
     }
   })
 );
 
-/* ---------- E-Transfer (pending) ---------- */
+/* ---------- E-Transfer (variant-aware + tax) ---------- */
 app.post(
   "/api/payments/etransfer-order",
   asyncHandler(async (req, res) => {
     try {
-      const {
-        items = [],
-        customer = {},
-        orderDraftId = "",
-        reference: refIn,
-      } = req.body;
+      const { items = [], customer = {}, orderDraftId = "" } = req.body;
 
-      const reference =
-        (refIn && String(refIn).trim()) ||
-        `ET-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+      if (!items.length) {
+        return res.status(400).json({ error: "Cart is empty" });
+      }
 
-      const { totalCents, normalizedItems } = await computeEtransfer(items);
+      if (!orderDraftId) {
+        return res.status(400).json({ error: "Missing orderDraftId" });
+      }
 
-      const order = await insertOrder({
+      // ---------------------------
+      // 1) Calculate totals
+      // ---------------------------
+      let subtotalCents = 0;
+      const normalizedItems = [];
+
+      for (const it of items) {
+        const p = await fetchAnyProductOrVariant(it.id); // 👈 FIXED
+
+        const qty = Number(it.qty);
+        const unitCents = p.unit_amount;
+
+        subtotalCents += unitCents * qty;
+
+        normalizedItems.push({
+          product_id: p.id,           // variant OR product
+          name: p.name,
+          price: unitCents / 100,
+          qty,
+        });
+      }
+
+      const taxCents = Math.round(subtotalCents * 0.13);
+      const totalCents = subtotalCents + taxCents;
+
+      // ---------------------------
+      // 2) Upsert order in DB
+      // ---------------------------
+      const orderRow = {
         draft_id: orderDraftId,
         status: "pending",
         method: "etransfer",
-        reference,
-        message: customer.message || "",
-        amount: Math.round(totalCents) / 100,
+        reference: `ET-${Date.now()}`,
+        amount: totalCents / 100,
         currency: "cad",
+        message: customer.message || "",
         full_name: customer.fullName || "",
         email: customer.email || "",
         phone: customer.phone || "",
         address: customer.address || "",
         city: customer.city || "",
         postal_code: customer.postalCode || "",
-      });
+      };
 
-      // Inventory update (your previous working logic)
-      console.log("🔥 updating inventory...");
+      await supabase.from("Orders").upsert(orderRow, { onConflict: "draft_id" });
 
-      for (const ni of normalizedItems) {
-        const productId = ni.product_id;
-        const qtyPurchased = Number(ni.qty);
-
-        console.log(
-          `Updating inventory: product ${productId}, qty -${qtyPurchased}`
-        );
-
-        const { data: prod, error: prodErr } = await supabase
-          .from("Products")
-          .select("qty")
-          .eq("id", productId)
-          .single();
-
-        if (prodErr) {
-          console.error("Error fetching product qty:", prodErr.message);
-          continue;
-        }
-
-        const newQty = Math.max(0, (prod.qty ?? 0) - qtyPurchased);
-
-        const { error: updErr } = await supabase
-          .from("Products")
-          .update({ qty: newQty })
-          .eq("id", productId);
-
-        if (updErr) {
-          console.error("Error updating inventory:", updErr.message);
-        }
-      }
-
-      console.log("🔥 inventory update finished");
+      // ---------------------------
+      // 3) Insert order items
+      // ---------------------------
+      await supabase.from("OrderItems").delete().eq("order_id", orderDraftId);
 
       for (const ni of normalizedItems) {
-        await insertItem({
-          order_id: order.draft_id,
+        await supabase.from("OrderItems").insert({
+          order_id: orderDraftId,
           product_id: ni.product_id,
           name: ni.name,
           price: ni.price,
@@ -467,101 +535,71 @@ app.post(
         });
       }
 
-      return res.json({ message: "Order created with status pending", order });
+
+      return res.json({ status: "success", order: orderRow });
+
     } catch (err) {
-      if (String(err?.message || "").startsWith("Product not found:")) {
-        return res.status(404).send("Product not found");
-      }
-      console.error("❌ etransfer failed:", err);
-      return res.status(500).send("Internal server error");
+      console.error("❌ E-transfer error:", err);
+      return res.status(500).json({ error: "Internal server error" });
     }
   })
 );
 
-/* ---------- PayPal: create ---------- */
-app.post(
-  "/api/payments/paypal/create-order",
-  asyncHandler(async (req, res) => {
-    try {
-      const { items = [], orderDraftId = "" } = req.body;
-
-      const ppItems = [];
-      let total = 0;
-      for (const it of items) {
-        const p = await fetchProduct(it.id);
-        const qty = Number(it.qty) || 1;
-        const unit = p.unit_amount / 100;
-        total += unit * qty;
-        ppItems.push({
-          name: p.name,
-          sku: p.id,
-          quantity: String(qty),
-          unit_amount: { currency_code: "CAD", value: unit.toFixed(2) },
-        });
-      }
-
-      const request = new paypal.orders.OrdersCreateRequest();
-      request.prefer("return=representation");
-      request.requestBody({
-        intent: "CAPTURE",
-        purchase_units: [
-          {
-            reference_id: orderDraftId,
-            amount: {
-              currency_code: "CAD",
-              value: total.toFixed(2),
-              breakdown: {
-                item_total: {
-                  currency_code: "CAD",
-                  value: total.toFixed(2),
-                },
-              },
-            },
-            items: ppItems,
-          },
-        ],
-      });
-
-      const order = await payPalClient.execute(request);
-      return res.json({ id: order.result.id });
-    } catch (err) {
-      if (String(err?.message || "").startsWith("Product not found:")) {
-        return res.status(404).send("Product not found");
-      }
-      console.error("❌ paypal create failed:", err);
-      return res.status(500).send("Internal server error");
-    }
-  })
-);
-
-/* ---------- PayPal: capture ---------- */
+/* ---------- PayPal: capture (WITH TAX + VARIANTS, ROBUST) ---------- */
 app.post(
   "/api/payments/paypal/capture-order",
   asyncHandler(async (req, res) => {
     try {
       const { orderID, orderDraftId, customer = {}, items = [] } = req.body;
 
-      // Capture
+      // 1) Capture the PayPal order
       const capReq = new paypal.orders.OrdersCaptureRequest(orderID);
       capReq.requestBody({});
       const capRes = await payPalClient.execute(capReq);
 
       const pu = capRes.result?.purchase_units?.[0];
       const cap = pu?.payments?.captures?.[0];
-      const capturedAmount = toNum(cap?.amount?.value);
+
+      // Try to use PayPal’s own captured amount first
+      let capturedTotal = toNum(cap?.amount?.value);
       const capturedCurrency = String(
         cap?.amount?.currency_code || "CAD"
       ).toLowerCase();
 
-      // Upsert order
+      console.log("💰 PayPal raw capture amount =", capturedTotal);
+
+      // 2) If PayPal returns 0/NaN, recompute subtotal + 13% tax server-side
+      if ((!capturedTotal || Number.isNaN(capturedTotal)) && Array.isArray(items) && items.length > 0) {
+        let subtotalCents = 0;
+
+        for (const it of items) {
+          const p = await fetchAnyProductOrVariant(it.id);
+          const qty = Number(it.qty ?? 1);
+          subtotalCents += p.unit_amount * qty; // unit_amount is cents
+        }
+
+        const taxCents = Math.round(subtotalCents * 0.13);
+        const totalCents = subtotalCents + taxCents;
+        capturedTotal = totalCents / 100;
+
+        console.log("🧮 Recomputed PayPal total from items =", {
+          subtotal: subtotalCents / 100,
+          tax: taxCents / 100,
+          total: capturedTotal,
+        });
+      }
+
+      console.log("📦 Final PayPal total that will be stored in DB:", capturedTotal);
+
+      // 3) Upsert order with this final total
       const order = await upsertOrder({
         draft_id: orderDraftId,
         status: "paid",
         method: "paypal",
         reference: capRes.result.id,
-        message: customer.message || "",
-        amount: capturedAmount,
+        amount: capturedTotal,
         currency: capturedCurrency,
+        message: customer.message || "",
         full_name: customer.fullName || "",
         email: customer.email || "",
         phone: customer.phone || "",
@@ -570,113 +608,33 @@ app.post(
         postal_code: customer.postalCode || "",
       });
 
-      // Build items from PayPal
-      let itemsToInsert = [];
-      try {
-        const getReq = new paypal.orders.OrdersGetRequest(orderID);
-        const getRes = await payPalClient.execute(getReq);
-        const ppItems = getRes.result?.purchase_units?.[0]?.items || [];
-        itemsToInsert =
-          ppItems.length > 0
-            ? ppItems.map((i) => ({
-                productIdFromSku: i.sku || null,
-                name: i.name,
-                qty: Number(i.quantity || 1),
-                unitAmountFromGateway: toNum(i.unit_amount?.value),
-              }))
-            : [];
-      } catch {
-        itemsToInsert = [];
+      // 4) Build real items from request (variant-aware)
+      const itemsToInsert = [];
+
+      for (const it of items) {
+        const p = await fetchAnyProductOrVariant(it.id);
+        const qty = Number(it.qty ?? 1);
+
+        itemsToInsert.push({
+          order_id: orderDraftId,
+          product_id: p.id,
+          name: p.name,
+          price: p.unit_amount / 100, // back to dollars
+          qty,
+        });
       }
 
-      if (itemsToInsert.length === 0 && Array.isArray(items) && items.length > 0) {
-        itemsToInsert = items.map((it) => ({
-          productIdFromSku: it.id || null,
-          name: it.name,
-          qty: Number(it.qty || 1),
-          unitAmountFromGateway: null,
-        }));
+      // 5) Replace order items
+      await supabase.from("OrderItems").delete().eq("order_id", orderDraftId);
+      for (const row of itemsToInsert) {
+        await supabase.from("OrderItems").insert(row);
       }
 
-      // Skip if items already there
-      const { data: existing } = await supabase
-        .from("OrderItems")
-        .select("id")
-        .eq("order_id", orderDraftId)
-        .limit(1);
-      const hasItems = Array.isArray(existing) && existing.length > 0;
-
-      if (!hasItems && itemsToInsert.length > 0) {
-        for (const it of itemsToInsert) {
-          const qty = Number(it.qty) || 1;
-          let productId = it.productIdFromSku;
-          let name;
-          let price;
-
-          if (productId) {
-            const p = await fetchProduct(productId);
-            productId = p.id;
-            name = it.name || p.name;
-            price = p.unit_amount / 100;
-          } else {
-            name = it.name || "Unnamed item";
-            price =
-              typeof it.unitAmountFromGateway === "number"
-                ? it.unitAmountFromGateway
-                : 0;
-            productId = "adhoc";
-          }
-
-          await insertItem({
-            order_id: orderDraftId,
-            product_id: String(productId),
-            name,
-            price,
-            qty,
-          });
-        }
+      // 6) Update inventory using the variant-aware product_id
+      for (const row of itemsToInsert) {
+        await decrementInventory(row);
       }
 
-      /* ---- INVENTORY UPDATE FOR PAYPAL ---- */
-      console.log("🔥 PayPal payment captured — updating inventory...");
-
-      try {
-        const { data: orderItems, error: oiErr } = await supabase
-          .from("OrderItems")
-          .select("product_id, qty")
-          .eq("order_id", orderDraftId);
-
-        if (oiErr) {
-          console.error("❌ Failed to fetch OrderItems for PayPal:", oiErr);
-        } else {
-          for (const it of orderItems) {
-            console.log(
-              `   → Decreasing inventory: product ${it.product_id}, qty ${it.qty}`
-            );
-
-            const { error: decErr } = await supabase.rpc(
-              "decrement_product_qty",
-              {
-                pid: it.product_id,
-                amount: it.qty,
-              }
-            );
-
-            if (decErr) {
-              console.error(
-                `❌ Failed to decrement inventory for ${it.product_id}:`,
-                decErr
-              );
-            } else {
-              console.log(
-                `✔ Inventory updated for product ${it.product_id}`
-              );
-            }
-          }
-        }
-      } catch (e) {
-        console.error("❌ PayPal inventory update failed:", e);
-      }
 
       return res.json({ status: "success", order });
     } catch (err) {
@@ -688,6 +646,107 @@ app.post(
     }
   })
 );
+
+
+
+/* ---------- PayPal: CREATE ORDER ---------- */
+app.post(
+  "/api/payments/paypal/create-order",
+  asyncHandler(async (req, res) => {
+    const { items = [], customer = {}, orderDraftId = "" } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0)
+      return res.status(400).json({ error: "Cart is empty" });
+
+    if (!orderDraftId)
+      return res.status(400).json({ error: "Missing orderDraftId" });
+
+    // 1) PRICE CALCULATION
+    let subtotalCents = 0;
+    const normalizedItems = [];
+
+    for (const it of items) {
+      const p = await fetchAnyProductOrVariant(it.id);
+      const qty = Number(it.qty ?? 1);
+      const unitCents = p.unit_amount;
+
+      subtotalCents += unitCents * qty;
+
+      normalizedItems.push({
+        id: it.id,
+        qty,
+        name: p.name,
+        unitPrice: unitCents / 100,
+      });
+    }
+
+    const taxCents = Math.round(subtotalCents * 0.13);
+    const totalCents = subtotalCents + taxCents;
+
+    // 2) BUILD PAYPAL ORDER
+    const purchaseUnit = {
+      custom_id: orderDraftId,
+
+      amount: {
+        currency_code: "CAD",
+        value: (totalCents / 100).toFixed(2),
+        breakdown: {
+          item_total: {
+            currency_code: "CAD",
+            value: (subtotalCents / 100).toFixed(2),
+          },
+          tax_total: {
+            currency_code: "CAD",
+            value: (taxCents / 100).toFixed(2),
+          },
+        },
+      },
+
+      items: normalizedItems.map((i) => ({
+        name: i.name,
+        quantity: String(i.qty),
+        unit_amount: {
+          currency_code: "CAD",
+          value: i.unitPrice.toFixed(2),
+        },
+      })),
+    };
+
+
+    const order = {
+      intent: "CAPTURE",
+      purchase_units: [purchaseUnit],
+      application_context: {
+        shipping_preference: "NO_SHIPPING",
+        user_action: "PAY_NOW",
+        return_url: `${feBaseUrl()}/success`,
+        cancel_url: `${feBaseUrl()}/checkout`,
+      },
+    };
+
+    // 3) SEND ORDER TO PAYPAL
+    const ppRes = await fetch(
+      "https://api-m.sandbox.paypal.com/v2/checkout/orders",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${await paypalGenerateAccessToken()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(order),
+      }
+    );
+
+    const data = await ppRes.json();
+    if (!data.id) {
+      console.error("❌ PayPal create-order error:", data);
+      return res.status(500).json({ error: "PayPal order creation failed" });
+    }
+
+    return res.json({ id: data.id });
+  })
+);
+
 
 /* ---------- Success helpers ---------- */
 app.get(
@@ -987,6 +1046,35 @@ app.post("/api/admin/login", asyncHandler(async (req, res) => {
     adminTokenExpiry: expiry
   });
 }));
+
+
+cron.schedule("0 * * * *", async () => { 
+  // Runs every hour at minute 0
+  console.log("⏰ Running E-transfer expiry check...");
+
+  try {
+    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await supabase
+      .from("Orders")
+      .update({ status: "cancelled" })
+      .eq("method", "etransfer")
+      .eq("status", "pending")
+      .lt("created_at", cutoff)
+      .select();
+
+    if (error) {
+      console.error("❌ Failed to expire e-transfer orders:", error);
+    } else if (data?.length) {
+      console.log(`🚫 Auto-cancelled ${data.length} expired E-transfer orders`);
+    } else {
+      console.log("✔ No expired e-transfer orders found");
+    }
+  } catch (err) {
+    console.error("❌ Cron job failed:", err);
+  }
+});
+
 
 
 /* ---------- Errors ---------- */

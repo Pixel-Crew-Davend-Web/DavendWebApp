@@ -257,3 +257,20 @@
   font-size: 0.9rem;
   color: #444;
 }
+/* ================
+   TAX + TOTAL ROWS
+   ================ */
+.tax,
+.total {
+  margin-top: 8px;
+  font-size: 1.15rem;
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+}
+
+.total {
+  margin-top: 12px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}

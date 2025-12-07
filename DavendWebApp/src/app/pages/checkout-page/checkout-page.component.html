@@ -40,6 +40,15 @@
       <span>Subtotal</span>
       <strong>${{ total.toFixed(2) }}</strong>
     </div>
+    <div class="tax" *ngIf="cartItems.length > 0">
+      <span>Tax (HST 13%)</span>
+      <strong>${{ tax.toFixed(2) }}</strong>
+    </div>
+
+    <div class="total" *ngIf="cartItems.length > 0">
+      <span>Total</span>
+      <strong>${{ grandTotal.toFixed(2) }}</strong>
+    </div>
   </div>
 
 

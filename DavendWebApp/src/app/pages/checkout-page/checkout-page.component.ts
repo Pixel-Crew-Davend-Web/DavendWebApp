@@ -44,55 +44,56 @@ export class CheckoutPageComponent implements OnInit {
     private router: Router,
     private http: HttpClient,
     private popup: PopupService
-  ) {}
+  ) { }
 
   async ngOnInit() {
     const localCart = JSON.parse(localStorage.getItem('cart') || '[]');
 
-for (const item of localCart) {
-  try {
-    // 1. Try to load variant
-    const variantResp = await this.supabase.getVariantByID(item.id);
 
-    if (variantResp.data) {
-      const v = variantResp.data;
-      const p = v.Products; // parent product
+    for (const item of localCart) {
+      try {
+        // 1. Try to load variant
+        const variantResp = await this.supabase.getVariantByID(item.id);
 
-      const cartEntry = {
-        id: v.id,
-        name: `${p.name} (${v.size} - ${v.length_value})`,
-        description: p.description,
-        imageURL: p.imageURL,  // variant uses product image
-        price: v.price,
-        qty: item.qty,
-        totalPrice: v.price * item.qty,
-        removeQty: 1
-      };
+        if (variantResp.data) {
+          const v = variantResp.data;
+          const p = v.Products; // parent product
 
-      this.cartItems.push(cartEntry);
-      continue; // go to next cart item
+          const cartEntry = {
+            id: v.id,
+            name: `${p.name} (${v.size} - ${v.length_value})`,
+            description: p.description,
+            imageURL: p.imageURL,  // variant uses product image
+            price: v.price,
+            qty: item.qty,
+            totalPrice: v.price * item.qty,
+            removeQty: 1
+          };
+
+          this.cartItems.push(cartEntry);
+          continue; // go to next cart item
+        }
+
+        // 2. If not a variant → fallback to product
+        const product = await this.productService.getProductByID(item.id);
+        const cartEntry = {
+          id: item.id,
+          name: product.name,
+          description: product.description,
+          imageURL: product.imageURL,
+          price: product.price,
+          qty: item.qty,
+          totalPrice: product.price * item.qty,
+          removeQty: 1
+        };
+
+        this.cartItems.push(cartEntry);
+
+      } catch (err) {
+        console.error(`Failed to fetch item with ID ${item.id}:`, err);
+      }
     }
-
-    // 2. If not a variant → fallback to product
-    const product = await this.productService.getProductByID(item.id);
-    const cartEntry = {
-      id: item.id,
-      name: product.name,
-      description: product.description,
-      imageURL: product.imageURL,
-      price: product.price,
-      qty: item.qty,
-      totalPrice: product.price * item.qty,
-      removeQty: 1
-    };
-
-    this.cartItems.push(cartEntry);
-
-  } catch (err) {
-    console.error(`Failed to fetch item with ID ${item.id}:`, err);
-  }
-}
-await this.validateCartStock();
+    await this.validateCartStock();
     this.recalculateTotal();
   }
 
@@ -139,56 +140,67 @@ await this.validateCartStock();
     localStorage.removeItem('cart');
     this.popup.info('Cart cleared.');
   }
+  /* =========================
+   TAX + TOTAL CALCULATIONS
+   ========================= */
+  get tax(): number {
+    return this.roundToTwo(this.total * 0.13);
+  }
+
+  get grandTotal(): number {
+    return this.roundToTwo(this.total + this.tax);
+  }
+
 
   private async validateCartStock() {
-  const updatedCart: any[] = [];
-  const validItems: any[] = [];
+    const updatedCart: any[] = [];
+    const validItems: any[] = [];
 
-  // Check each cart item
-  for (const item of this.cartItems) {
-    try {
-      // 1. Try to load as a variant
-      const variantResp = await this.supabase.getVariantByID(item.id);
+    // Check each cart item
+    for (const item of this.cartItems) {
+      try {
+        // 1. Try to load as a variant
+        const variantResp = await this.supabase.getVariantByID(item.id);
 
-      if (variantResp.data) {
-        const v = variantResp.data;
+        if (variantResp.data) {
+          const v = variantResp.data;
 
-        // If NO STOCK → skip (auto-remove)
-        if (item.qty > v.qty || v.qty <= 0) {
-          this.popup.error(`Variant ${item.id} removed from cart due to insufficient stock`);
+          // If NO STOCK → skip (auto-remove)
+          if (item.qty > v.qty || v.qty <= 0) {
+            this.popup.error(`Variant ${item.id} removed from cart due to insufficient stock`);
+            continue;
+          }
+
+          // Valid → keep it
+          updatedCart.push({ id: item.id, qty: item.qty });
+          validItems.push(item);
           continue;
         }
 
-        // Valid → keep it
+        // 2. If not a variant → try loading as product
+        const product = await this.productService.getProductByID(item.id);
+
+        if (item.qty > product.qty || product.qty <= 0) {
+          this.popup.error(`Product ${item.name} removed from cart due to insufficient stock`);
+          continue;
+        }
+
         updatedCart.push({ id: item.id, qty: item.qty });
         validItems.push(item);
-        continue;
+
+      } catch (e) {
+        console.error(`Could not validate stock for ${item.id}:`, e);
+        // Remove item if lookup fails entirely
       }
-
-      // 2. If not a variant → try loading as product
-      const product = await this.productService.getProductByID(item.id);
-
-      if (item.qty > product.qty || product.qty <= 0) {
-        this.popup.error(`Product ${item.name} removed from cart due to insufficient stock`);
-        continue;
-      }
-
-      updatedCart.push({ id: item.id, qty: item.qty });
-      validItems.push(item);
-
-    } catch (e) {
-      console.error(`Could not validate stock for ${item.id}:`, e);
-      // Remove item if lookup fails entirely
     }
+
+    // Update component + localStorage
+    this.cartItems = validItems;
+    localStorage.setItem('cart', JSON.stringify(updatedCart));
+
+    // Recalculate totals
+    this.recalculateTotal();
   }
-
-  // Update component + localStorage
-  this.cartItems = validItems;
-  localStorage.setItem('cart', JSON.stringify(updatedCart));
-
-  // Recalculate totals
-  this.recalculateTotal();
-}
 
 
   async payNow() {
@@ -207,7 +219,7 @@ await this.validateCartStock();
 
     try {
       const customer: any = this.checkoutForm.value;
-      const amount = this.total;
+      const amount = this.grandTotal;
       const paymentMethod: PaymentMethod = customer.method ?? 'CARD';
       const orderDraft = await this.orderService.createOrderDraft(
         this.cartItems,
@@ -222,20 +234,20 @@ await this.validateCartStock();
         },
         paymentMethod,
         amount
-      ); 
+      );
 
       if (paymentMethod === 'CARD') {
         await this.paymentService.payWithCard(this.cartItems, customer, orderDraft.id);
-        return; 
+        return;
       }
 
       if (paymentMethod === 'ETRANSFER') {
-       
+
         const result: any = await this.paymentService.payWithEtransfer(
-          this.cartItems,
+          this.cartItems.map(i => ({ id: i.id, qty: i.qty })),
           customer,
           orderDraft.id
-          
+
         );
 
         const ref = result?.order?.reference || 'ET-UNKNOWN';
@@ -243,7 +255,7 @@ await this.validateCartStock();
           status: 'pending',
           reference: ref,
           deadlineISO: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
-          amount: this.total,
+          amount: this.grandTotal,
           message: 'Please send an e-transfer to payments@yourshop.com with the reference in the memo.'
         };
 
@@ -251,20 +263,20 @@ await this.validateCartStock();
           if (result?.order?.draft_id) {
             await this.emailService.sendEtransferInstructions(result.order.draft_id);
           }
-        } catch {  }
+        } catch { }
 
         return;
       }
 
       if (paymentMethod === 'PAYPAL') {
-        
+
         const paypalSdk = (window as any).paypal;
         if (!paypalSdk || !paypalSdk.Buttons) {
           this.errorMsg = 'PayPal is not available right now. Please try again later.';
           return;
         }
 
-       
+
         const createResp = await this.http.post<{ id: string }>(
           `${environment.apiBaseUrl}/api/payments/paypal/create-order`,
           { items: this.cartItems.map(i => ({ id: i.id, qty: i.qty })), customer, orderDraftId: orderDraft.id }
@@ -284,10 +296,12 @@ await this.validateCartStock();
           createOrder: () => orderID,
           onApprove: async (data: any) => {
             try {
-              const capture: any = await this.http.post(
-                `${environment.apiBaseUrl}/api/payments/paypal/capture-order`,
-                { orderID: data.orderID, orderDraftId: orderDraft.id, customer }
-              ).toPromise();
+              const capture = await this.paymentService.capturePayPalOrder({
+                orderID: data.orderID,
+                orderDraftId: orderDraft.id,
+                customer,
+                items: this.cartItems, // 👈 pass full cart so backend can recompute totals
+              });
 
               if (capture?.status === 'success') {
                 this.router.navigate(['/success', orderDraft.id]);
@@ -299,6 +313,7 @@ await this.validateCartStock();
               this.errorMsg = 'PayPal payment failed. Please try again.';
             }
           },
+
           onCancel: () => {
             this.errorMsg = 'PayPal payment was canceled.';
           },
@@ -308,7 +323,7 @@ await this.validateCartStock();
           }
         }).render(containerSelector);
 
-        return; 
+        return;
       }
 
       this.popup.error('Unknown payment method.');
