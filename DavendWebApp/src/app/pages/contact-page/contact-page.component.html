@@ -38,12 +38,8 @@
 
       <div class="form-group file-group">
         <label for="attachment">Attachment <em class="muted">(optional)</em></label>
-        <input
-          id="attachment"
-          type="file"
-          accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-          (change)="onFileChange($event)"
-        />
+        <input id="attachment" type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+          (change)="onFileChange($event)" />
         <br>
         <small class="hint" *ngIf="!attachmentName">Accepted: JPG, PNG, or PDF (max {{maxSizeMb}}MB)</small>
 
@@ -67,9 +63,14 @@
   <!-- Optional: quick info box -->
   <aside class="contact-info card">
     <h3>Prefer email?</h3>
-    <p>You can also email us directly: <strong>example&#64;gmail.com</strong></p>
+   <p>
+  You can also email us directly: 
+  <a href="mailto:info@davendpunch.ca" style="color: black; text-decoration: none;">
+    <strong>info&#64;davendpunch.ca</strong>
+  </a>
+</p>
     <p class="muted">We typically respond within 1–2 business days.</p>
-  </aside>
+  </aside> 
 </div>
 
 <app-footer></app-footer>

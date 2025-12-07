@@ -7,6 +7,16 @@
     <p>Discover the best products we have to offer.</p>
   </section>
 
+    <div class="products-info-banner">
+  <p>
+    We sell a variety of punches, bushings and components that work with our products, 
+    like ejector pins and springs.
+  </p>
+  <p>
+    Don't see your size? Looking for customizations? Looking for something else? 
+    <a routerLink="/contact" class="info-link">Please click here.</a>
+  </p>
+</div>
   <!-- Filters -->
   <div class="filter-bar card">
     <div class="search-bar">
@@ -36,6 +46,8 @@
 
   <!-- Grid -->
   <h2 class="section-title">Available Products</h2>
+
+
   <div class="products-grid">
     <article class="product-card card" *ngFor="let product of filteredProducts">
       <div class="product-media carousel-wrapper">

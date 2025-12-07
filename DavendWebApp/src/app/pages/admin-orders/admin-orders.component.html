@@ -24,9 +24,7 @@
       <div class="form-grid">
         <label class="field field-span2">
           <span>Search</span>
-          <input type="text"
-                 [(ngModel)]="searchTerm"
-                 placeholder="Search by ID, customer, or item..." />
+          <input type="text" [(ngModel)]="searchTerm" placeholder="Search by ID, customer, or item..." />
         </label>
 
         <label class="field">
@@ -41,8 +39,7 @@
 
         <label class="field">
           <span>Sort</span>
-          <button class="btn btn-secondary"
-                  (click)="sortNewestFirst = !sortNewestFirst">
+          <button class="btn btn-secondary" (click)="sortNewestFirst = !sortNewestFirst">
             {{ sortNewestFirst ? 'Newest → Oldest' : 'Oldest → Newest' }}
           </button>
         </label>
@@ -67,6 +64,7 @@
               <th class="sticky">ID</th>
               <th class="sticky">Customer</th>
               <th class="sticky">Items</th>
+              <th class="sticky">Amount</th>
               <th class="sticky">Method</th>
               <th class="sticky">Date</th>
               <th class="sticky">Status</th>
@@ -89,6 +87,10 @@
               </td>
 
               <td>{{ o.items }}</td>
+              <td class="t-right">
+                {{ o.amount | currency:(o.currency || 'CAD'):'symbol-narrow':'1.2-2' }}
+              </td>
+
               <td>{{ o.method || '—' }}</td>
               <td>{{ o.date }}</td>
 
@@ -148,6 +150,10 @@
       <p><strong>Method:</strong> {{ selected.method || '—' }}</p>
       <p><strong>Date:</strong> {{ selected.date }}</p>
       <p><strong>Status:</strong> {{ selected.status }}</p>
+      <p>
+      <strong>Amount:</strong>
+      {{ selected.amount | currency:(selected.currency || 'CAD'):'symbol-narrow':'1.2-2' }}
+      </p>
 
       <!-- NEW: Show reference inside modal too -->
       <p><strong>Reference:</strong> {{ selected.reference || '—' }}</p>
