@@ -132,17 +132,19 @@ async function paypalGenerateAccessToken() {
     throw new Error("Missing PayPal credentials in env");
   }
 
-  const base = PAYPAL_ENV === "live"
-    ? "https://api-m.paypal.com"
-    : "https://api-m.sandbox.paypal.com";
+  const base =
+    PAYPAL_ENV === "live"
+      ? "https://api-m.paypal.com"
+      : "https://api-m.sandbox.paypal.com";
+
+  const auth = Buffer.from(`${clientId}:${secret}`).toString("base64");
 
   const res = await fetch(`${base}/v1/oauth2/token`, {
-
     method: "POST",
     headers: {
-      Authorization: `Bearer ${await paypalGenerateAccessToken()}`,
-      "Content-Type": "application/json",
-},
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
     body: "grant_type=client_credentials",
   });
 
@@ -155,6 +157,7 @@ async function paypalGenerateAccessToken() {
   const data = await res.json();
   return data.access_token;
 }
+
 
 
 async function fetchProduct(productIdRaw) {
