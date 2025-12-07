@@ -132,9 +132,12 @@ async function paypalGenerateAccessToken() {
     throw new Error("Missing PayPal credentials in env");
   }
 
-  const auth = Buffer.from(`${clientId}:${secret}`).toString("base64");
+  const base = PAYPAL_ENV === "live"
+    ? "https://api-m.paypal.com"
+    : "https://api-m.sandbox.paypal.com";
 
-  const res = await fetch("https://api-m.sandbox.paypal.com/v1/oauth2/token", {
+  const res = await fetch(`${base}/v1/oauth2/token`, {
+
     method: "POST",
     headers: {
       Authorization: `Basic ${auth}`,
@@ -444,7 +447,7 @@ app.post(
           city: customer.city ?? "",
           postalCode: customer.postalCode ?? "",
           message: customer.message ?? "",
-         items: JSON.stringify(normalizedItems),
+          items: JSON.stringify(normalizedItems),
           subtotal: (subtotalCents / 100).toFixed(2),
           tax: (taxCents / 100).toFixed(2),
           total: ((subtotalCents + taxCents) / 100).toFixed(2),
@@ -1048,7 +1051,7 @@ app.post("/api/admin/login", asyncHandler(async (req, res) => {
 }));
 
 
-cron.schedule("0 * * * *", async () => { 
+cron.schedule("0 * * * *", async () => {
   // Runs every hour at minute 0
   console.log("⏰ Running E-transfer expiry check...");
 

@@ -20,6 +20,8 @@ interface Order {
   history: string[];
   _editing?: boolean;
   _pendingStatus?: OrderStatus;
+  amount: number;
+  currency?: string;
 }
 
 @Component({
@@ -33,7 +35,7 @@ export class AdminOrdersComponent implements OnInit {
     private adminAuthService: AdminAuthService,
     private popup: PopupService,
     private supabase: SupabaseService
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.validateSession();
@@ -91,6 +93,8 @@ export class AdminOrdersComponent implements OnInit {
         status: this.mapDbStatus(o.status),
         notes: o.message || '',
         history: [],
+        amount: typeof o.amount === 'number' ? o.amount : 0,
+        currency: (o.currency || 'CAD').toUpperCase(),
       }));
     } catch (err) {
       console.error('Failed to load orders', err);
@@ -220,8 +224,7 @@ export class AdminOrdersComponent implements OnInit {
   }
 
   downloadCSV() {
-    const header = ['ID', 'Customer', 'Email', 'Phone', 'Items', 'Method', 'Reference', 'Date', 'Status', 'Notes'];
-
+    const header = ['ID', 'Customer', 'Email', 'Phone', 'Items', 'Method', 'Amount', 'Currency', 'Reference', 'Date', 'Status', 'Notes'];
     const rows = this.filteredOrders.map(o => [
       o.id,
       o.customerName,
@@ -229,6 +232,8 @@ export class AdminOrdersComponent implements OnInit {
       o.phone,
       o.items,
       o.method ?? '',
+      o.amount.toFixed(2),
+      o.currency || 'CAD',
       o.reference ?? '',
       o.date,
       o.status,
