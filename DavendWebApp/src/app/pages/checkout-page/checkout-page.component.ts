@@ -23,6 +23,11 @@ export class CheckoutPageComponent implements OnInit {
   errorMsg = '';
   pendingInfo: PaymentResult | null = null;
 
+  closePendingModal() {
+  this.pendingInfo = null;
+}
+
+
   checkoutForm = this.fb.group({
     fullName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
@@ -201,6 +206,23 @@ export class CheckoutPageComponent implements OnInit {
     // Recalculate totals
     this.recalculateTotal();
   }
+  refCopied = false;
+
+copyRefToClipboard(ref: string | null | undefined) {
+  if (!ref) return;
+
+  navigator.clipboard.writeText(ref).then(
+    () => {
+      this.refCopied = true;
+      setTimeout(() => (this.refCopied = false), 1500);
+    },
+    () => {
+      // optional: handle clipboard failure if you care
+      this.refCopied = false;
+    }
+  );
+}
+
 
 
   async payNow() {

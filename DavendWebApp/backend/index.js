@@ -512,7 +512,7 @@ app.post(
         draft_id: orderDraftId,
         status: "pending",
         method: "etransfer",
-        reference: `ET-${Date.now()}`,
+        reference: `ET-${Math.floor(10000 + Math.random() * 90000)}`,
         amount: totalCents / 100,
         currency: "cad",
         message: customer.message || "",

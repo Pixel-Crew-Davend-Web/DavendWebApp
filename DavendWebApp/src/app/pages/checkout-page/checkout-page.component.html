@@ -154,22 +154,28 @@
     <div *ngIf="errorMsg" class="error">{{ errorMsg }}</div>
   </div>
 
+<!-- E-TRANSFER POPUP -->
+<div class="etransfer-overlay" *ngIf="pendingInfo">
+  <div class="etransfer-modal">
+    <h2>✓ E-Transfer Order Created</h2>
 
-  <!-- ============================== -->
-  <!--  PENDING E-TRANSFER INSTRUCTIONS -->
-  <!-- ============================== -->
-  <div class="card pending-card" *ngIf="pendingInfo">
-    <h2>E-Transfer Pending</h2>
+    <p>Please send your payment within <strong>48 hours</strong>.</p>
 
-    <p>Amount Due: <strong>{{ pendingInfo.amount | currency:'CAD' }}</strong></p>
-    <p>Recipient: <strong>Davendpunch&#64;gmail.com</strong></p>
-    <p>Reference Code: <strong>{{ pendingInfo.reference }}</strong></p>
-    <p>Deadline: <strong>{{ pendingInfo.deadlineISO | date:'short' }}</strong></p>
+    <div class="modal-section">
+      <p><strong>Amount Due:</strong> ${{ pendingInfo.amount }}</p>
+      <p><strong>Reference:</strong> {{ pendingInfo.reference }}</p>
+    </div>
 
-    <p class="note">
-      We’ve emailed your instructions. Your order will be processed after payment is confirmed.
+    <p class="muted">
+      Send your e-transfer to <strong>info&#64;davendpunch.ca</strong>  
+      and include the reference in the memo. You have been emailed instructions as well.
     </p>
+
+    <button class="btn btn-primary" (click)="closePendingModal()">
+      Done
+    </button>
   </div>
+</div>
 
 </div>
 
