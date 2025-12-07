@@ -20,37 +20,44 @@
   <!-- ======================== -->
   <section class="experience-section">
     <p>
-      At Davend Punch and Die Co. Ltd., we bring over 30 years of craftsmanship and 
-      precision engineering to the manufacturing industry. Our team specializes in high-accuracy 
-      tooling, advanced CNC machining, and premium grinding services crafted to meet the 
-      demanding needs of modern production environments.
+      Davend Punch & Die Co. Ltd is a Mississauga based company established in 1993, by two
+      partners. Now fully run by Paresh Patel, one of the original partners. Davend Punch offers 30+
+      years of experience in manufacturing punches and die bushings/buttons to fit all our customers
+      needs. <br> <br>
+      We specialize in a variety of punches, die buttons/bushings, centerless grinding, ID grinding,
+      and surface grinding for a variety of industries. <br> <br>
+      We at Davend Punch & Die offer our customers personalized service and pride ourselves on our
+      quality workmanship and dependability. <br> <br>
+      We aim to build strong, trust-based client relationships and remain committed to meeting their
+      evolving needs now and into the future.
+
     </p>
   </section>
 
   <!-- ======================== -->
   <!-- SERVICES SUMMARY SECTION -->
   <!-- ======================== -->
-<section class="services-overview" *ngIf="services.length > 0">
-  <h2>Our Core Capabilities</h2>
+  <section class="services-overview" *ngIf="services.length > 0">
+    <h2>Our Core Capabilities</h2>
 
-  <div class="services-grid">
+    <div class="services-grid">
 
-    <!-- Featured Service (optional) -->
-    <div class="service-card featured" *ngIf="featuredService" (click)="goToServiceRequest(featuredService.title)">
-      <h3>{{ featuredService.title }}</h3>
-      <p>{{ featuredService.description }}</p>
+      <!-- Featured Service (optional) -->
+      <div class="service-card featured" *ngIf="featuredService" (click)="goToServiceRequest(featuredService.title)">
+        <h3>{{ featuredService.title }}</h3>
+        <p>{{ featuredService.description }}</p>
+
+      </div>
+
+      <!-- Loop all regular services -->
+      <div class="service-card" *ngFor="let s of services">
+        <h3>{{ s.title }}</h3>
+        <p>{{ s.description }}</p>
+
+      </div>
 
     </div>
-
-    <!-- Loop all regular services -->
-    <div class="service-card" *ngFor="let s of services">
-      <h3>{{ s.title }}</h3>
-      <p>{{ s.description }}</p>
-
-    </div>
-
-  </div>
-</section>
+  </section>
 
 
   <!-- ======================== -->
@@ -71,25 +78,21 @@
   <!-- ======================== -->
   <!-- Find Us -->
   <!-- ======================== -->
-<section class="location-section">
-  <h2>Find Us</h2>
+  <section class="location-section">
+    <h2>Find Us</h2>
 
-  <p class="address">
-    6720 Davand Dr Unit #9<br>
-    Mississauga, ON L5T 2K7
-  </p>
+    <p class="address">
+      6720 Davand Dr Unit #9<br>
+      Mississauga, ON L5T 2K7
+    </p>
 
-  <div class="map-wrapper">
-    <iframe
-      width="100%"
-      height="350"
-      frameborder="0"
-      style="border-radius: 8px;"
-      src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2883.222909805224!2d-79.68709922382664!3d43.64310205394869!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x882b41cd9c2663c9%3A0x44b6f6cd41b480b0!2s6720%20Davand%20Dr%20%239%2C%20Mississauga%2C%20ON%20L5T%202K7!5e0!3m2!1sen!2sca!4v1701468123456"
-      allowfullscreen>
-    </iframe>
-  </div>
-</section>
+    <div class="map-wrapper">
+      <iframe width="100%" height="350" frameborder="0" style="border-radius: 8px;"
+        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2883.222909805224!2d-79.68709922382664!3d43.64310205394869!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x882b41cd9c2663c9%3A0x44b6f6cd41b480b0!2s6720%20Davand%20Dr%20%239%2C%20Mississauga%2C%20ON%20L5T%202K7!5e0!3m2!1sen!2sca!4v1701468123456"
+        allowfullscreen>
+      </iframe>
+    </div>
+  </section>
 
   <!-- ======================== -->
   <!-- CALL-TO-ACTION SECTION -->
