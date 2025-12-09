@@ -15,28 +15,31 @@ export class ManageServicesComponent implements OnInit {
 
   services: any[] = [];
 
-  // ADD form
-  newService = { title: '', description: '', imageURL: '', is_featured: false };
+  // ----- ADD FORM -----
+  newService = {
+    title: '',
+    description: '',
+    imageURL: '',
+    is_featured: false,
+  };
 
-  // EDIT form
-  editingService: any = null;
-
-  // ADD preview state
   selectedAddFile: File | null = null;
   addPreviewUrl: string | null = null;
   showAddImageWarning = false;
 
-  // EDIT preview state
+  addErrors = { title: '', description: '' };
+
+  @ViewChild('addReuploadInput')
+  addReuploadInput!: ElementRef<HTMLInputElement>;
+
+  // ----- EDIT FORM -----
+  editingService: any = null;
+
   selectedEditFile: File | null = null;
   editPreviewUrl: string | null = null;
 
-  // Validation
-  addErrors = { title: '', description: '' };
   editErrors = { title: '', description: '' };
 
-  // File input references
-  @ViewChild('addReuploadInput')
-  addReuploadInput!: ElementRef<HTMLInputElement>;
   @ViewChild('editReuploadInput')
   editReuploadInput!: ElementRef<HTMLInputElement>;
 
@@ -55,7 +58,9 @@ export class ManageServicesComponent implements OnInit {
     await this.loadServices();
   }
 
-  // ---------------- VALIDATION ------------------
+  /* ============================================================
+     VALIDATION
+     ============================================================ */
 
   private validateTitle(v: string): string {
     const t = (v ?? '').trim();
@@ -78,9 +83,9 @@ export class ManageServicesComponent implements OnInit {
   }
 
   validateEdit() {
-    this.editErrors.title = this.validateTitle(this.editingService.title);
+    this.editErrors.title = this.validateTitle(this.editingService?.title);
     this.editErrors.description = this.validateDesc(
-      this.editingService.description
+      this.editingService?.description
     );
   }
 
@@ -94,6 +99,7 @@ export class ManageServicesComponent implements OnInit {
 
   get editFormValid() {
     if (!this.editingService) return false;
+
     return (
       !this.editErrors.title &&
       !this.editErrors.description &&
@@ -101,10 +107,13 @@ export class ManageServicesComponent implements OnInit {
     );
   }
 
-  // ---------------- ADMIN SESSION VALIDATION ------------------
+  /* ============================================================
+     ADMIN SESSION
+     ============================================================ */
 
   private async ensureAdminIsLoggedIn() {
     const email = localStorage.getItem('email');
+
     if (!email) {
       this.adminAuthService.logoutAdmin();
       this.router.navigate(['/login']);
@@ -113,6 +122,7 @@ export class ManageServicesComponent implements OnInit {
 
     const adminID = await this.adminAuthService.getAdminIDByEmail(email);
     const token = localStorage.getItem('adminToken');
+
     const valid = await this.adminAuthService.isAdminTokenValid(
       adminID,
       token || undefined
@@ -131,24 +141,26 @@ export class ManageServicesComponent implements OnInit {
     this.router.navigate(['/login']);
   }
 
-  // ---------------- LOAD SERVICES ------------------
+  /* ============================================================
+     LOAD SERVICES
+     ============================================================ */
 
   async loadServices() {
     const { data } = await this.sb.getAllServices();
     this.services = data || [];
   }
 
-  // ---------------- IMAGE HELPERS ------------------
-
   getServiceImageUrl(fileName: string) {
     return `https://oitjgpsicvzplwsbmxyo.supabase.co/storage/v1/object/public/service-images/${fileName}`;
   }
 
-  // ---------------- ADD LOGIC ------------------
+  /* ============================================================
+     ADD SERVICE
+     ============================================================ */
 
   handleAddImageUpload(evt: Event) {
     const input = evt.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
+    const file = input.files?.[0] || null;
 
     this.clearAddPreview();
     if (!file) return;
@@ -160,13 +172,12 @@ export class ManageServicesComponent implements OnInit {
     }
 
     this.selectedAddFile = file;
-    const url = URL.createObjectURL(file);
-
-    this.addPreviewUrl = url;
+    this.addPreviewUrl = URL.createObjectURL(file);
   }
 
   clearAddPreview() {
     if (this.addPreviewUrl) URL.revokeObjectURL(this.addPreviewUrl);
+
     this.selectedAddFile = null;
     this.addPreviewUrl = null;
     this.showAddImageWarning = false;
@@ -178,6 +189,7 @@ export class ManageServicesComponent implements OnInit {
 
   async addService() {
     this.validateAdd();
+
     if (!this.addFormValid) {
       this.popup.error('Fix highlighted fields.');
       return;
@@ -215,22 +227,26 @@ export class ManageServicesComponent implements OnInit {
       });
 
       this.popup.success('Service added.');
+
       this.newService = {
         title: '',
         description: '',
         imageURL: '',
         is_featured: false,
       };
+
       this.addErrors = { title: '', description: '' };
       this.clearAddPreview();
       this.loadServices();
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
       this.popup.error('Failed to add service.');
     }
   }
 
-  // ---------------- EDIT LOGIC ------------------
+  /* ============================================================
+     EDIT SERVICE
+     ============================================================ */
 
   editService(service: any) {
     this.editingService = { ...service };
@@ -239,7 +255,7 @@ export class ManageServicesComponent implements OnInit {
 
   handleEditImageUpload(evt: Event) {
     const input = evt.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
+    const file = input.files?.[0] || null;
 
     this.clearEditPreview();
     if (!file) return;
@@ -251,13 +267,12 @@ export class ManageServicesComponent implements OnInit {
     }
 
     this.selectedEditFile = file;
-    const url = URL.createObjectURL(file);
-
-    this.editPreviewUrl = url;
+    this.editPreviewUrl = URL.createObjectURL(file);
   }
 
   clearEditPreview() {
     if (this.editPreviewUrl) URL.revokeObjectURL(this.editPreviewUrl);
+
     this.selectedEditFile = null;
     this.editPreviewUrl = null;
   }
@@ -274,7 +289,7 @@ export class ManageServicesComponent implements OnInit {
     }
 
     try {
-      const oldUrl = this.editingService?.image_url || '';
+      const oldUrl = this.editingService.image_url || '';
       const oldFileName = oldUrl.split('/').pop();
 
       let uploadedPath: string | null = null;
@@ -297,12 +312,13 @@ export class ManageServicesComponent implements OnInit {
       }
 
       this.popup.success('Service updated.');
+
       this.editingService = null;
       this.editErrors = { title: '', description: '' };
       this.clearEditPreview();
       await this.loadServices();
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
       this.popup.error('Failed to update.');
     }
   }
@@ -312,27 +328,6 @@ export class ManageServicesComponent implements OnInit {
     this.clearEditPreview();
   }
 
-  cancelAddImage() {
-    // Clear preview state (releases object URL, resets flags)
-    this.clearAddPreview();
-
-    // Also clear the file input element so the same file can be reselected
-    if (this.addReuploadInput) {
-      this.addReuploadInput.nativeElement.value = '';
-    }
-  }
-
-  cancelEditImage() {
-    // Clear edit preview state
-    this.clearEditPreview();
-
-    // Clear the file input element
-    if (this.editReuploadInput) {
-      this.editReuploadInput.nativeElement.value = '';
-    }
-  }
-
-  // ---------------- DELETE ------------------
 
   async deleteService(id: string) {
     const confirmed = await this.confirm.confirm({
@@ -347,5 +342,18 @@ export class ManageServicesComponent implements OnInit {
     await this.sb.deleteService(id);
     this.popup.success('Service deleted.');
     this.loadServices();
+  }
+
+
+  cancelAddImage() {
+    this.clearAddPreview();
+    if (this.addReuploadInput)
+      this.addReuploadInput.nativeElement.value = '';
+  }
+
+  cancelEditImage() {
+    this.clearEditPreview();
+    if (this.editReuploadInput)
+      this.editReuploadInput.nativeElement.value = '';
   }
 }

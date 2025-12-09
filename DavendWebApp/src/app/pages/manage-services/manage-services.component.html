@@ -16,58 +16,54 @@
   <!-- Page Content -->
   <main class="content">
 
-    <!-- ADD SERVICE CARD -->
+    <!-- ADD SERVICE -->
     <section class="card add-service">
       <div class="card-head">
         <h3>Add Service</h3>
         <p class="muted">Create a new service and optionally upload an image.</p>
       </div>
 
-      <!-- FORM GRID -->
       <div class="form-grid">
+
         <label class="field">
           <span>Title</span>
           <input type="text"
-            [(ngModel)]="newService.title"
-            (ngModelChange)="validateAdd()"
-            [class.invalid]="!!addErrors.title"
-            placeholder="e.g. Centerless Grinding"
-          />
+                 [(ngModel)]="newService.title"
+                 (ngModelChange)="validateAdd()"
+                 [class.invalid]="!!addErrors.title"
+                 placeholder="e.g. Centerless Grinding"/>
           <small class="err" *ngIf="addErrors.title">{{ addErrors.title }}</small>
         </label>
 
         <label class="field field-span2">
           <span>Description</span>
           <input type="text"
-            [(ngModel)]="newService.description"
-            (ngModelChange)="validateAdd()"
-            [class.invalid]="!!addErrors.description"
-            placeholder="Short description of the service"
-          />
+                 [(ngModel)]="newService.description"
+                 (ngModelChange)="validateAdd()"
+                 [class.invalid]="!!addErrors.description"
+                 placeholder="Short description"/>
           <small class="err" *ngIf="addErrors.description">{{ addErrors.description }}</small>
         </label>
 
         <label class="field">
           <span>Featured?</span>
-          <input type="checkbox" [(ngModel)]="newService.is_featured" />
+          <input type="checkbox" [(ngModel)]="newService.is_featured"/>
         </label>
 
         <label class="field field-span2">
           <span>Image <em class="muted">(optional)</em></span>
-          <input
-            type="file"
-            class="file-input"
-            accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-            (change)="handleAddImageUpload($event)"
-          />
+          <input class="file-input"
+                 type="file"
+                 accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                 (change)="handleAddImageUpload($event)"/>
           <p class="hint">Accepted: JPG or PNG</p>
         </label>
 
       </div>
 
-      <!-- PREVIEW -->
+      <!-- ADD PREVIEW -->
       <div *ngIf="addPreviewUrl" class="preview-wrap">
-        <img [src]="addPreviewUrl" class="preview-img" />
+        <img [src]="addPreviewUrl" class="preview-img"/>
 
         <div class="preview-actions">
           <button class="btn btn-secondary" (click)="triggerAddReupload()">Choose different file</button>
@@ -84,13 +80,12 @@
         </div>
       </div>
 
-      <input
-        #addReuploadInput
-        type="file"
-        accept=".jpg,.jpeg,.png"
-        style="display:none"
-        (change)="handleAddImageUpload($event)"
-      />
+      <!-- Hidden re-upload input -->
+      <input type="file"
+             #addReuploadInput
+             accept=".jpg,.jpeg,.png"
+             style="display:none"
+             (change)="handleAddImageUpload($event)"/>
 
       <div class="actions">
         <button class="btn btn-primary" (click)="addService()" [disabled]="!addFormValid">
@@ -117,17 +112,16 @@
               <th class="sticky">Actions</th>
             </tr>
           </thead>
+
           <tbody>
             <tr *ngFor="let s of services">
               <td class="t-left">{{ s.title }}</td>
               <td class="t-left ellipsize">{{ s.description }}</td>
               <td>{{ s.is_featured ? 'Yes' : 'No' }}</td>
               <td>
-                <img
-                  [src]="getServiceImageUrl(s.image_url)"
-                  class="product-img"
-                />
+                <img [src]="getServiceImageUrl(s.image_url)" class="product-img"/>
               </td>
+
               <td>
                 <div class="row-actions">
                   <button class="btn btn-warning" (click)="editService(s)">Edit</button>
@@ -136,66 +130,83 @@
               </td>
             </tr>
           </tbody>
+
         </table>
       </div>
     </section>
 
-    <!-- EDIT SERVICE -->
-    <section class="card" *ngIf="editingService">
-      <div class="card-head">
-        <h3>Edit Service</h3>
-        <p class="muted">Update service information or upload a new asset.</p>
-      </div>
+    <!-- EDIT SERVICE MODAL -->
+    <div class="admin-modal-overlay" *ngIf="editingService" (click)="cancelEdit()">
+      <div class="admin-modal card" (click)="$event.stopPropagation()">
 
-      <div class="form-grid">
-        <label class="field">
-          <span>Title</span>
-          <input type="text" [(ngModel)]="editingService.title" (ngModelChange)="validateEdit()"
-            [class.invalid]="!!editErrors.title">
-          <small class="err" *ngIf="editErrors.title">{{ editErrors.title }}</small>
-        </label>
-
-        <label class="field field-span2">
-          <span>Description</span>
-          <input type="text" [(ngModel)]="editingService.description" (ngModelChange)="validateEdit()"
-            [class.invalid]="!!editErrors.description">
-          <small class="err" *ngIf="editErrors.description">{{ editErrors.description }}</small>
-        </label>
-
-        <label class="field">
-          <span>Featured?</span>
-          <input type="checkbox" [(ngModel)]="editingService.is_featured" />
-        </label>
-
-        <label class="field field-span2">
-          <span>New Image (optional)</span>
-          <input class="file-input" type="file"
-            accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-            (change)="handleEditImageUpload($event)">
-        </label>
-      </div>
-
-      <div *ngIf="editPreviewUrl" class="preview-wrap">
-        <img [src]="editPreviewUrl" class="preview-img" />
-
-        <div class="preview-actions">
-          <button class="btn btn-secondary" (click)="triggerEditReupload()">Choose another file</button>
-          <button class="btn btn-ghost" (click)="cancelEditImage()">Cancel image</button>
+        <div class="card-head modal-header">
+          <h3>Edit Service</h3>
+          <button class="close-btn" (click)="cancelEdit()">✕</button>
         </div>
-      </div>
 
-      <input
-        #editReuploadInput
-        type="file"
-        accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-        style="display:none"
-        (change)="handleEditImageUpload($event)"
-      />
+        <div class="modal-body">
 
-      <div class="actions">
-        <button class="btn btn-primary" (click)="saveEdit()" [disabled]="!editFormValid">Save</button>
-        <button class="btn btn-ghost" (click)="cancelEdit()">Cancel</button>
+          <div class="form-grid">
+
+            <label class="field">
+              <span>Title</span>
+              <input type="text"
+                     [(ngModel)]="editingService.title"
+                     (ngModelChange)="validateEdit()"
+                     [class.invalid]="!!editErrors.title">
+              <small class="err" *ngIf="editErrors.title">{{ editErrors.title }}</small>
+            </label>
+
+            <label class="field field-span2">
+              <span>Description</span>
+              <input type="text"
+                     [(ngModel)]="editingService.description"
+                     (ngModelChange)="validateEdit()"
+                     [class.invalid]="!!editErrors.description">
+              <small class="err" *ngIf="editErrors.description">{{ editErrors.description }}</small>
+            </label>
+
+            <label class="field">
+              <span>Featured?</span>
+              <input type="checkbox" [(ngModel)]="editingService.is_featured"/>
+            </label>
+
+            <label class="field field-span2">
+              <span>New Image (optional)</span>
+              <input class="file-input"
+                     type="file"
+                     accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                     (change)="handleEditImageUpload($event)">
+            </label>
+
+          </div>
+
+          <!-- EDIT PREVIEW -->
+          <div *ngIf="editPreviewUrl" class="preview-wrap">
+            <img [src]="editPreviewUrl" class="preview-img"/>
+
+            <div class="preview-actions">
+              <button class="btn btn-secondary" (click)="triggerEditReupload()">Choose another file</button>
+              <button class="btn btn-ghost" (click)="cancelEditImage()">Cancel image</button>
+            </div>
+          </div>
+
+          <!-- Hidden Reupload Input -->
+          <input type="file"
+                 #editReuploadInput
+                 accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                 style="display:none"
+                 (change)="handleEditImageUpload($event)"/>
+
+          <div class="actions row-actions">
+            <button class="btn btn-primary" (click)="saveEdit()" [disabled]="!editFormValid">Save</button>
+            <button class="btn btn-ghost" (click)="cancelEdit()">Cancel</button>
+          </div>
+
+        </div>
+
       </div>
-    </section>
+    </div>
+
   </main>
 </div>
