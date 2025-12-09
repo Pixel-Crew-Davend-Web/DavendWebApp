@@ -22,6 +22,9 @@ interface Order {
   _pendingStatus?: OrderStatus;
   amount: number;
   currency?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
 }
 
 @Component({
@@ -95,6 +98,9 @@ export class AdminOrdersComponent implements OnInit {
         history: [],
         amount: typeof o.amount === 'number' ? o.amount : 0,
         currency: (o.currency || 'CAD').toUpperCase(),
+        address: o.address || '',
+        city: o.city || '',
+        postalCode: o.postal_code || '',
       }));
     } catch (err) {
       console.error('Failed to load orders', err);

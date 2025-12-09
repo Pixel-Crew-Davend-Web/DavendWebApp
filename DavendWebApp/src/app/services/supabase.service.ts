@@ -42,6 +42,9 @@ export interface DbOrder {
   email?: string | null;
   phone?: string | null;
   message?: string | null;
+  address?: string | null;
+  city?: string | null;
+  postal_code?: string | null;
 }
 
 export interface DbOrderItem {

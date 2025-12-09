@@ -14,6 +14,19 @@ import { SupabaseService } from '../../services/supabase.service';
 export class ManageInventoryComponent implements OnInit {
   readonly DEFAULT_IMAGE_KEY = 'defaults/product-placeholder.jpg';
 
+  closeVariantModal() {
+  this.selectedProductForVariant = null;
+  this.variants = [];
+  this.newVariant = { size: '', length: '', price: null, qty: null, imageURL: null };
+}
+
+closeEditProduct() {
+  this.editingProduct = null;
+  this.clearEditPreview();
+  this.editErrors = { name: '', price: '', qty: '' };
+  this.pendingAdditionalFiles = [];
+}
+
   products: any[] = [];
   newProduct = { name: '', description: '', price: 0, qty: 0, imageURL: '' };
   editingProduct: any = null;
@@ -533,6 +546,7 @@ export class ManageInventoryComponent implements OnInit {
           this.selectedEditFile
         );
       }
+      
 
       const finalImageUrl = uploadedPath ?? oldUrl ?? this.DEFAULT_IMAGE_KEY;
 
