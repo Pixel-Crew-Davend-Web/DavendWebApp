@@ -136,66 +136,80 @@
         </table>
       </div>
     </section>
-    
-<!-- Modal Overlay -->
-<div class="admin-modal-overlay" *ngIf="selected" (click)="closeDetails()">
-  <div class="admin-modal card" (click)="$event.stopPropagation()">
-    <div class="card-head modal-header">
-      <h3>Order Details – {{ selected.id }}</h3>
-      <button class="close-btn" (click)="closeDetails()">✕</button>
+
+    <!-- Modal Overlay -->
+    <div class="admin-modal-overlay" *ngIf="selected" (click)="closeDetails()">
+      <div class="admin-modal card" (click)="$event.stopPropagation()">
+        <div class="card-head modal-header">
+          <h3>Order Details – {{ selected.id }}</h3>
+          <button class="close-btn" (click)="closeDetails()">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Customer -->
+          <section class="modal-section">
+            <h4>Customer</h4>
+            <p><strong>Name:</strong> {{ selected.customerName }}</p>
+            <p><strong>Email:</strong> {{ selected.email }}</p>
+            <p><strong>Phone:</strong> {{ selected.phone || '—' }}</p>
+          </section>
+
+          <!-- Address -->
+          <section class="modal-section">
+            <h4>Address</h4>
+            <p>{{ selected.address || '—' }}</p>
+            <p *ngIf="selected.city || selected.postalCode">
+              {{ selected.city || '' }}
+              <span *ngIf="selected.city && selected.postalCode"> • </span>
+              {{ selected.postalCode || '' }}
+            </p>
+          </section>
+
+          <!-- Payment -->
+          <section class="modal-section">
+            <h4>Payment & Status</h4>
+            <p><strong>Method:</strong> {{ selected.method || '—' }}</p>
+            <p><strong>Status:</strong> {{ selected.status }}</p>
+            <p><strong>Date:</strong> {{ selected.date }}</p>
+            <p>
+              <strong>Amount:</strong>
+              {{ selected.amount | currency:(selected.currency || 'CAD'):'symbol-narrow':'1.2-2' }}
+            </p>
+            <p><strong>Reference:</strong> {{ selected.reference || '—' }}</p>
+          </section>
+
+          <!-- Items -->
+          <section class="modal-section">
+            <h4>Items</h4>
+            <p>{{ selected.items }}</p>
+          </section>
+
+          <!-- Notes -->
+          <section class="modal-section">
+            <h4>Notes</h4>
+            <p>{{ selected.notes || '—' }}</p>
+          </section>
+        </div>
+        <section class="modal-section">
+          <h4>History</h4>
+
+          <ng-container *ngIf="selected.history?.length; else noHistModal">
+            <div *ngFor="let h of selected.history">
+              • {{ h }}
+            </div>
+          </ng-container>
+
+          <ng-template #noHistModal>
+            <p>— No history yet</p>
+          </ng-template>
+        </section>
+
+
+        <div class="modal-actions">
+          <button class="btn btn-ghost" (click)="closeDetails()">Close</button>
+        </div>
+      </div>
     </div>
-
-    <div class="modal-body">
-      <!-- Customer -->
-      <section class="modal-section">
-        <h4>Customer</h4>
-        <p><strong>Name:</strong> {{ selected.customerName }}</p>
-        <p><strong>Email:</strong> {{ selected.email }}</p>
-        <p><strong>Phone:</strong> {{ selected.phone || '—' }}</p>
-      </section>
-
-      <!-- Address -->
-      <section class="modal-section">
-        <h4>Address</h4>
-        <p>{{ selected.address || '—' }}</p>
-        <p *ngIf="selected.city || selected.postalCode">
-          {{ selected.city || '' }}
-          <span *ngIf="selected.city && selected.postalCode"> • </span>
-          {{ selected.postalCode || '' }}
-        </p>
-      </section>
-
-      <!-- Payment -->
-      <section class="modal-section">
-        <h4>Payment & Status</h4>
-        <p><strong>Method:</strong> {{ selected.method || '—' }}</p>
-        <p><strong>Status:</strong> {{ selected.status }}</p>
-        <p><strong>Date:</strong> {{ selected.date }}</p>
-        <p>
-          <strong>Amount:</strong>
-          {{ selected.amount | currency:(selected.currency || 'CAD'):'symbol-narrow':'1.2-2' }}
-        </p>
-        <p><strong>Reference:</strong> {{ selected.reference || '—' }}</p>
-      </section>
-
-      <!-- Items -->
-      <section class="modal-section">
-        <h4>Items</h4>
-        <p>{{ selected.items }}</p>
-      </section>
-
-      <!-- Notes -->
-      <section class="modal-section">
-        <h4>Notes</h4>
-        <p>{{ selected.notes || '—' }}</p>
-      </section>
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn btn-ghost" (click)="closeDetails()">Close</button>
-    </div>
-  </div>
-</div>
 
 
   </main>
