@@ -1,5 +1,4 @@
 import { Component, ViewChild, ElementRef, OnDestroy } from '@angular/core';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { PopupService } from '../../services/popup.service';
@@ -24,18 +23,16 @@ export class ServiceRequestPageComponent implements OnDestroy {
 
   // Preview state
   previewUrl: string | null = null;
-  previewIsPdf = false;
-  previewTrustedUrl: SafeResourceUrl | null = null;
 
   // Config
   readonly allowedTypes = new Set<string>([
-    'image/jpeg', 'image/png', 'application/pdf'
+    'image/jpeg', 'image/png'
   ]);
   readonly maxSizeMb = 10;
 
   @ViewChild('reuploadInput', { static: false }) reuploadInput!: ElementRef<HTMLInputElement>;
 
-  constructor(private fb: FormBuilder, private http: HttpClient, private sanitizer: DomSanitizer, private popup: PopupService, private route: ActivatedRoute, private supabase: SupabaseService) {
+  constructor(private fb: FormBuilder, private http: HttpClient, private popup: PopupService, private route: ActivatedRoute, private supabase: SupabaseService) {
     this.requestForm = this.fb.group({
       fullName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
@@ -76,8 +73,6 @@ export class ServiceRequestPageComponent implements OnDestroy {
       URL.revokeObjectURL(this.previewUrl);
       this.previewUrl = null;
     }
-    this.previewTrustedUrl = null;
-    this.previewIsPdf = false;
   }
 
   get titleHeader() {
@@ -105,7 +100,7 @@ export class ServiceRequestPageComponent implements OnDestroy {
     // Size & type checks
     const sizeMb = file.size / (1024 * 1024);
     if (!this.allowedTypes.has(file.type)) {
-      alert('Only JPG/PNG images or PDF files are allowed.');
+      alert('Only JPG or PNG images are allowed.');
       input.value = '';
       return;
     }
@@ -121,14 +116,7 @@ export class ServiceRequestPageComponent implements OnDestroy {
 
     // Build preview
     const objectUrl = URL.createObjectURL(file);
-    if (file.type === 'application/pdf') {
-      this.previewIsPdf = true;
-      this.previewUrl = objectUrl;
-      this.previewTrustedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(objectUrl);
-    } else {
-      this.previewIsPdf = false;
-      this.previewUrl = objectUrl; // <img> preview
-    }
+    this.previewUrl = objectUrl; // <img> preview
   }
 
   triggerReupload() {

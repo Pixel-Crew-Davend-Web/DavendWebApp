@@ -1,6 +1,5 @@
 import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { DomSanitizer } from '@angular/platform-browser';
 import { HttpClient } from '@angular/common/http';
 import { PopupService } from '../../services/popup.service';
 
@@ -19,10 +18,10 @@ export class ContactPageComponent {
 
   readonly maxSizeMb = 10;
   readonly allowedTypes = new Set([
-    'image/jpeg', 'image/png', 'application/pdf'
+    'image/jpeg', 'image/png'
   ]);
 
-  constructor(private fb: FormBuilder, private http: HttpClient, private sanitizer: DomSanitizer, private popup: PopupService) {
+  constructor(private fb: FormBuilder, private http: HttpClient, private popup: PopupService) {
     this.contactForm = this.fb.group({
       fullName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
@@ -50,7 +49,7 @@ export class ContactPageComponent {
 
     const sizeMb = file.size / (1024 * 1024);
     if (!this.allowedTypes.has(file.type)) {
-      this.popup.error('Only JPG/PNG images or PDF files are allowed.');
+      this.popup.error('Only JPG or PNG images are allowed.');
       input.value = '';
       return;
     }

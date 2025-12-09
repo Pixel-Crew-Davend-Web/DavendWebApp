@@ -38,10 +38,10 @@
 
       <div class="form-group file-group">
         <label for="attachment">Attachment <em class="muted">(optional)</em></label>
-        <input id="attachment" type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+        <input id="attachment" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png"
           (change)="onFileChange($event)" />
         <br>
-        <small class="hint" *ngIf="!attachmentName">Accepted: JPG, PNG, or PDF (max {{maxSizeMb}}MB)</small>
+        <small class="hint" *ngIf="!attachmentName">Accepted: JPG or PNG (max {{maxSizeMb}}MB)</small>
 
         <!-- Small attachment chip -->
         <div class="attach-chip" *ngIf="attachmentName">

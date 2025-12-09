@@ -289,13 +289,6 @@
   display: block;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
-.pdf-embed {
-  width: 380px;
-  height: 420px;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-}
 .preview-actions {
   display: flex;
   gap: 8px;
@@ -423,9 +416,6 @@
   .badge {
     background: #111827;
     color: #a5b4fc;
-  }
-  .pdf-embed {
-    border-color: #1f2937;
   }
   .callout.warn {
     background: #3a2a15;

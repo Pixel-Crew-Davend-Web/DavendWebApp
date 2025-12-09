@@ -1,5 +1,4 @@
 import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { AdminAuthService } from '../../services/admin-auth.service';
 import { SupabaseService } from '../../services/supabase.service';
 import { PopupService } from '../../services/popup.service';
@@ -25,15 +24,11 @@ export class ManageServicesComponent implements OnInit {
   // ADD preview state
   selectedAddFile: File | null = null;
   addPreviewUrl: string | null = null;
-  addPreviewIsPdf = false;
-  addPreviewTrustedUrl: SafeResourceUrl | null = null;
   showAddImageWarning = false;
 
   // EDIT preview state
   selectedEditFile: File | null = null;
   editPreviewUrl: string | null = null;
-  editPreviewIsPdf = false;
-  editPreviewTrustedUrl: SafeResourceUrl | null = null;
 
   // Validation
   addErrors = { title: '', description: '' };
@@ -45,12 +40,11 @@ export class ManageServicesComponent implements OnInit {
   @ViewChild('editReuploadInput')
   editReuploadInput!: ElementRef<HTMLInputElement>;
 
-  private readonly allowedTypes = new Set(['image/jpeg', 'application/pdf']);
+  private readonly allowedTypes = new Set(['image/jpeg', 'image/png']);
 
   constructor(
     private adminAuthService: AdminAuthService,
     private sb: SupabaseService,
-    private sanitizer: DomSanitizer,
     private popup: PopupService,
     private confirm: ConfirmService,
     private router: Router
@@ -160,21 +154,13 @@ export class ManageServicesComponent implements OnInit {
     if (!file) return;
 
     if (!this.allowedTypes.has(file.type)) {
-      this.popup.error('Only JPG/JPEG images or PDF files allowed.');
+      this.popup.error('Only JPG or PNG images allowed.');
       input.value = '';
       return;
     }
 
     this.selectedAddFile = file;
     const url = URL.createObjectURL(file);
-
-    if (file.type === 'application/pdf') {
-      this.addPreviewIsPdf = true;
-      this.addPreviewTrustedUrl =
-        this.sanitizer.bypassSecurityTrustResourceUrl(url);
-    } else {
-      this.addPreviewIsPdf = false;
-    }
 
     this.addPreviewUrl = url;
   }
@@ -183,8 +169,6 @@ export class ManageServicesComponent implements OnInit {
     if (this.addPreviewUrl) URL.revokeObjectURL(this.addPreviewUrl);
     this.selectedAddFile = null;
     this.addPreviewUrl = null;
-    this.addPreviewTrustedUrl = null;
-    this.addPreviewIsPdf = false;
     this.showAddImageWarning = false;
   }
 
@@ -261,21 +245,13 @@ export class ManageServicesComponent implements OnInit {
     if (!file) return;
 
     if (!this.allowedTypes.has(file.type)) {
-      this.popup.error('Only JPG/JPEG or PDF allowed.');
+      this.popup.error('Only JPG or PNG allowed.');
       input.value = '';
       return;
     }
 
     this.selectedEditFile = file;
     const url = URL.createObjectURL(file);
-
-    if (file.type === 'application/pdf') {
-      this.editPreviewIsPdf = true;
-      this.editPreviewTrustedUrl =
-        this.sanitizer.bypassSecurityTrustResourceUrl(url);
-    } else {
-      this.editPreviewIsPdf = false;
-    }
 
     this.editPreviewUrl = url;
   }
@@ -284,8 +260,6 @@ export class ManageServicesComponent implements OnInit {
     if (this.editPreviewUrl) URL.revokeObjectURL(this.editPreviewUrl);
     this.selectedEditFile = null;
     this.editPreviewUrl = null;
-    this.editPreviewTrustedUrl = null;
-    this.editPreviewIsPdf = false;
   }
 
   triggerEditReupload() {

@@ -1,5 +1,4 @@
 import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ProductService } from '../../services/product.service';
 import { AdminAuthService } from '../../services/admin-auth.service';
 import { PopupService } from '../../services/popup.service';
@@ -24,15 +23,11 @@ export class ManageInventoryComponent implements OnInit {
   // ADD form preview state
   selectedAddFile: File | null = null;
   addPreviewUrl: string | null = null;
-  addPreviewIsPdf = false;
-  addPreviewTrustedUrl: SafeResourceUrl | null = null;
   showAddImageWarning = false;
 
   // EDIT form preview state
   selectedEditFile: File | null = null;
   editPreviewUrl: string | null = null;
-  editPreviewIsPdf = false;
-  editPreviewTrustedUrl: SafeResourceUrl | null = null;
 
   editingProductImages: any[] = [];
   pendingAdditionalFiles: { file: File; preview: string }[] = [];
@@ -134,14 +129,13 @@ export class ManageInventoryComponent implements OnInit {
 
   private readonly allowedTypes = new Set<string>([
     'image/jpeg',
-    'application/pdf',
+    'image/png',
   ]);
 
   constructor(
     private productService: ProductService,
     private adminAuthService: AdminAuthService,
     private router: Router,
-    private sanitizer: DomSanitizer,
     private popup: PopupService,
     private confirm: ConfirmService,
     private supabaseService: SupabaseService
@@ -375,23 +369,14 @@ export class ManageInventoryComponent implements OnInit {
 
     // Normalize jpg/jpeg mime → image/jpeg in most browsers
     if (!this.allowedTypes.has(file.type)) {
-      this.popup.error('Only JPG/JPEG images or PDF files are allowed.');
+      this.popup.error('Only JPG or PNG images are allowed.');
       (evt.target as HTMLInputElement).value = ''; // reset input
       return;
     }
 
     this.selectedAddFile = file;
     const objectUrl = URL.createObjectURL(file);
-
-    if (file.type === 'application/pdf') {
-      this.addPreviewIsPdf = true;
-      this.addPreviewUrl = objectUrl;
-      this.addPreviewTrustedUrl =
-        this.sanitizer.bypassSecurityTrustResourceUrl(objectUrl);
-    } else {
-      this.addPreviewIsPdf = false;
-      this.addPreviewUrl = objectUrl; // image preview
-    }
+    this.addPreviewUrl = objectUrl; // image preview
   }
 
   triggerAddReupload() {
@@ -410,8 +395,6 @@ export class ManageInventoryComponent implements OnInit {
     if (this.addPreviewUrl) URL.revokeObjectURL(this.addPreviewUrl);
     this.selectedAddFile = null;
     this.addPreviewUrl = null;
-    this.addPreviewIsPdf = false;
-    this.addPreviewTrustedUrl = null;
     this.showAddImageWarning = false;
   }
 
@@ -425,23 +408,14 @@ export class ManageInventoryComponent implements OnInit {
     if (!file) return;
 
     if (!this.allowedTypes.has(file.type)) {
-      this.popup.error('Only JPG/JPEG images or PDF files are allowed.');
+      this.popup.error('Only JPG or PNG images are allowed.');
       (evt.target as HTMLInputElement).value = '';
       return;
     }
 
     this.selectedEditFile = file;
     const objectUrl = URL.createObjectURL(file);
-
-    if (file.type === 'application/pdf') {
-      this.editPreviewIsPdf = true;
-      this.editPreviewUrl = objectUrl;
-      this.editPreviewTrustedUrl =
-        this.sanitizer.bypassSecurityTrustResourceUrl(objectUrl);
-    } else {
-      this.editPreviewIsPdf = false;
-      this.editPreviewUrl = objectUrl;
-    }
+    this.editPreviewUrl = objectUrl;
   }
 
   triggerEditReupload() {
@@ -463,8 +437,6 @@ export class ManageInventoryComponent implements OnInit {
     if (this.editPreviewUrl) URL.revokeObjectURL(this.editPreviewUrl);
     this.selectedEditFile = null;
     this.editPreviewUrl = null;
-    this.editPreviewIsPdf = false;
-    this.editPreviewTrustedUrl = null;
   }
 
   async addProduct() {

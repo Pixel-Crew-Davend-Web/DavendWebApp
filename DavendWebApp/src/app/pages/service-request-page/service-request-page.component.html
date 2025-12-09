@@ -58,26 +58,21 @@
         <!-- File input -->
         <div class="form-group file-group">
           <label for="uploadDesign">Upload Design Print</label>
-          <input 
-            id="uploadDesign" 
-            type="file" 
-            accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+          <input
+            id="uploadDesign"
+            type="file"
+            accept=".jpg,.jpeg,.png,image/jpeg,image/png"
             (change)="onFileChange($event)" />
 
           <div *ngIf="requestForm.get('designFile')?.touched && requestForm.get('designFile')?.invalid" class="error">
             Design file is required
           </div>
-          <small class="hint">Accepted: PDF, PNG, JPG, DXF (max 10MB)</small>
+          <small class="hint">Accepted: PNG or JPG (max 10MB)</small>
         </div>
 
-        <!-- Preview (image or PDF) -->
+        <!-- Preview -->
         <div *ngIf="previewUrl" class="preview-wrap">
-          <div *ngIf="!previewIsPdf">
-            <img [src]="previewUrl" alt="Selected Design Preview" class="preview-img" />
-          </div>
-          <div *ngIf="previewIsPdf" class="pdf-preview">
-            <embed [src]="previewTrustedUrl" type="application/pdf" class="pdf-embed" />
-          </div>
+          <img [src]="previewUrl" alt="Selected Design Preview" class="preview-img" />
 
           <div class="preview-actions">
             <button type="button" class="btn btn-secondary" (click)="triggerReupload()">Choose different file</button>
@@ -89,7 +84,7 @@
         <input
           #reuploadInput
           type="file"
-          accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
           (change)="onFileChange($event)"
           style="display:none"
         />
