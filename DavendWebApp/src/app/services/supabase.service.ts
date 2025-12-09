@@ -324,24 +324,20 @@ export class SupabaseService {
   }
   private readonly allowedTypes = new Set<string>([
     'image/jpeg',
-    'application/pdf',
+    'image/png',
   ]);
 
   async uploadProductAsset(file: File): Promise<string> {
     if (!this.allowedTypes.has(file.type)) {
-      throw new Error('Only JPG/JPEG or PDF files are allowed.');
+      throw new Error('Only JPG, JPEG, or PNG files are allowed.');
     }
 
     // Optional: validate extension too (defense-in-depth)
     const lower = (file.name || '').toLowerCase();
     if (
-      !(
-        lower.endsWith('.jpg') ||
-        lower.endsWith('.jpeg') ||
-        lower.endsWith('.pdf')
-      )
+      !(lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png'))
     ) {
-      throw new Error('Only .jpg, .jpeg, or .pdf files are allowed.');
+      throw new Error('Only .jpg, .jpeg, or .png files are allowed.');
     }
 
     const ext = lower.substring(lower.lastIndexOf('.'));

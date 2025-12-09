@@ -20,7 +20,7 @@
     <section class="card add-service">
       <div class="card-head">
         <h3>Add Service</h3>
-        <p class="muted">Create a new service and optionally upload an image or PDF.</p>
+        <p class="muted">Create a new service and optionally upload an image.</p>
       </div>
 
       <!-- FORM GRID -->
@@ -53,27 +53,21 @@
         </label>
 
         <label class="field field-span2">
-          <span>Image / PDF <em class="muted">(optional)</em></span>
+          <span>Image <em class="muted">(optional)</em></span>
           <input
             type="file"
             class="file-input"
-            accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
+            accept=".jpg,.jpeg,.png,image/jpeg,image/png"
             (change)="handleAddImageUpload($event)"
           />
-          <p class="hint">Accepted: JPG/JPEG or PDF</p>
+          <p class="hint">Accepted: JPG or PNG</p>
         </label>
 
       </div>
 
       <!-- PREVIEW -->
       <div *ngIf="addPreviewUrl" class="preview-wrap">
-        <ng-container *ngIf="!addPreviewIsPdf">
-          <img [src]="addPreviewUrl" class="preview-img" />
-        </ng-container>
-
-        <ng-container *ngIf="addPreviewIsPdf">
-          <embed [src]="addPreviewTrustedUrl" class="pdf-embed" />
-        </ng-container>
+        <img [src]="addPreviewUrl" class="preview-img" />
 
         <div class="preview-actions">
           <button class="btn btn-secondary" (click)="triggerAddReupload()">Choose different file</button>
@@ -93,7 +87,7 @@
       <input
         #addReuploadInput
         type="file"
-        accept=".jpg,.jpeg,.pdf"
+        accept=".jpg,.jpeg,.png"
         style="display:none"
         (change)="handleAddImageUpload($event)"
       />
@@ -174,16 +168,15 @@
         </label>
 
         <label class="field field-span2">
-          <span>New Image/PDF (optional)</span>
+          <span>New Image (optional)</span>
           <input class="file-input" type="file"
-            accept=".jpg,.jpeg,.pdf"
+            accept=".jpg,.jpeg,.png,image/jpeg,image/png"
             (change)="handleEditImageUpload($event)">
         </label>
       </div>
 
       <div *ngIf="editPreviewUrl" class="preview-wrap">
-        <img *ngIf="!editPreviewIsPdf" [src]="editPreviewUrl" class="preview-img" />
-        <embed *ngIf="editPreviewIsPdf" [src]="editPreviewTrustedUrl" class="pdf-embed" />
+        <img [src]="editPreviewUrl" class="preview-img" />
 
         <div class="preview-actions">
           <button class="btn btn-secondary" (click)="triggerEditReupload()">Choose another file</button>
@@ -194,7 +187,7 @@
       <input
         #editReuploadInput
         type="file"
-        accept=".jpg,.jpeg,.pdf"
+        accept=".jpg,.jpeg,.png,image/jpeg,image/png"
         style="display:none"
         (change)="handleEditImageUpload($event)"
       />

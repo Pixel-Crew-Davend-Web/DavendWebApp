@@ -31,8 +31,6 @@ export class ProductService {
     return await this.supabaseProduct.deleteProduct(id);
   }
 
-  private readonly allowedTypes = new Set<string>(['image/jpeg', 'application/pdf']);
-
   async uploadProductAsset(file: File): Promise<string | null> {
     return await this.supabaseProduct.uploadProductAsset(file);
   }
