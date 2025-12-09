@@ -42,6 +42,10 @@ export interface DbOrder {
   email?: string | null;
   phone?: string | null;
   message?: string | null;
+  address?: string | null;
+  city?: string | null;
+  postal_code?: string | null;
+  history?: any[] | null;
 }
 
 export interface DbOrderItem {
@@ -425,6 +429,8 @@ export class SupabaseService {
       throw error;
     }
 
+    
+
     const orders = (data ?? []) as DbOrder[];
 
     // 2) Collect all draft IDs to fetch items for
@@ -631,6 +637,22 @@ export class SupabaseService {
       // signedPdfUrl
     };
   }
+
+  async updateOrderHistory(draftId: string, history: any[]): Promise<void> {
+  const id = draftId.trim();
+  if (!id) throw new Error("Missing draft_id");
+
+  const { error } = await this.supabase
+    .from("Orders")
+    .update({ history })
+    .eq("draft_id", id);
+
+  if (error) {
+    console.error("Error updating order history:", error);
+    throw error;
+  }
+}
+
 
   async generateReportCustomer(from: any, to: any) {
     from = new Date(from);

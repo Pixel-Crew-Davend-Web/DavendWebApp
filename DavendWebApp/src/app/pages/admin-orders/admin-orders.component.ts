@@ -22,6 +22,9 @@ interface Order {
   _pendingStatus?: OrderStatus;
   amount: number;
   currency?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
 }
 
 @Component({
@@ -92,9 +95,12 @@ export class AdminOrdersComponent implements OnInit {
         date: (o.created_at || '').slice(0, 10),
         status: this.mapDbStatus(o.status),
         notes: o.message || '',
-        history: [],
+        history: Array.isArray(o.history) ? o.history : [],
         amount: typeof o.amount === 'number' ? o.amount : 0,
         currency: (o.currency || 'CAD').toUpperCase(),
+        address: o.address || '',
+        city: o.city || '',
+        postalCode: o.postal_code || '',
       }));
     } catch (err) {
       console.error('Failed to load orders', err);
@@ -202,6 +208,12 @@ export class AdminOrdersComponent implements OnInit {
 
       const timestamp = new Date().toLocaleString();
       o.history.push(`Status changed from ${old} to ${next} on ${timestamp}`);
+      try {
+        await this.supabase.updateOrderHistory(o.id, o.history);
+      } catch (err) {
+        console.error('Failed to update order history', err);
+        this.showToast('Failed to save order history', 'error');
+      }
 
       this.showToast(`Order ${o.id} updated to ${next}`, 'success');
     } catch (err) {

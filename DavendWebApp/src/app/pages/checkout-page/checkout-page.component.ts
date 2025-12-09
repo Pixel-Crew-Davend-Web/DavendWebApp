@@ -24,8 +24,8 @@ export class CheckoutPageComponent implements OnInit {
   pendingInfo: PaymentResult | null = null;
 
   closePendingModal() {
-  this.pendingInfo = null;
-}
+    this.pendingInfo = null;
+  }
 
 
   checkoutForm = this.fb.group({
@@ -208,20 +208,20 @@ export class CheckoutPageComponent implements OnInit {
   }
   refCopied = false;
 
-copyRefToClipboard(ref: string | null | undefined) {
-  if (!ref) return;
+  copyRefToClipboard(ref: string | null | undefined) {
+    if (!ref) return;
 
-  navigator.clipboard.writeText(ref).then(
-    () => {
-      this.refCopied = true;
-      setTimeout(() => (this.refCopied = false), 1500);
-    },
-    () => {
-      // optional: handle clipboard failure if you care
-      this.refCopied = false;
-    }
-  );
-}
+    navigator.clipboard.writeText(ref).then(
+      () => {
+        this.refCopied = true;
+        setTimeout(() => (this.refCopied = false), 1500);
+      },
+      () => {
+        // optional: handle clipboard failure if you care
+        this.refCopied = false;
+      }
+    );
+  }
 
 
 
