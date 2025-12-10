@@ -26,7 +26,7 @@ export class ProductsPageComponent {
     private productService: ProductService,
     private popup: PopupService,
     private supabase: SupabaseService
-  ) {}
+  ) { }
 
   async ngOnInit() {
     const prods = await this.supabase.getAllProductsWithVariants();
@@ -102,16 +102,18 @@ export class ProductsPageComponent {
   onFilterChange(): void {
     this.applyAllFilters();
   }
-
   updatePagination() {
     const total = this.filteredProductsFull.length;
     this.totalPages = Math.ceil(total / this.itemsPerPage);
 
     const start = (this.currentPage - 1) * this.itemsPerPage;
     const end = start + this.itemsPerPage;
-
-    this.filteredProducts = this.filteredProductsFull.slice(start, end);
+    this.filteredProducts = this.filteredProductsFull.slice(start, end).map(p => ({
+      ...p,
+      inputQty: p.inputQty ?? 1
+    }));
   }
+
 
   nextPage() {
     if (this.currentPage < this.totalPages) {
