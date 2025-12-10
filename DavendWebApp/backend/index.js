@@ -43,6 +43,106 @@ const payPalEnv =
     : new paypal.core.SandboxEnvironment(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET);
 const payPalClient = new paypal.core.PayPalHttpClient(payPalEnv);
 
+/* ---------- SMTP + Order Email Helpers (ADDED) ---------- */
+const SMTP_HOST = process.env.SMTP_HOST || "";
+const SMTP_PORT = Number(process.env.SMTP_PORT || "587");
+const SMTP_USER = process.env.SMTP_USER || "";
+const SMTP_PASS = process.env.SMTP_PASS || "";
+const SMTP_FROM =
+  process.env.SMTP_FROM ||
+  (SMTP_USER ? `Davend Web App <${SMTP_USER}>` : "");
+const ADMIN_EMAIL =
+  process.env.ADMIN_EMAIL ||
+  SMTP_USER ||
+  "";
+
+function smtpConfigured() {
+  return !!SMTP_HOST && !!SMTP_PORT && !!SMTP_USER && !!SMTP_PASS;
+}
+
+async function sendEmail({ to, subject, text }) {
+  if (!smtpConfigured()) {
+    console.warn("📭 Email not sent: SMTP not fully configured");
+    return;
+  }
+  if (!to) {
+    console.warn("📭 Email not sent: missing 'to'");
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_PORT === 465,
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS,
+    },
+  });
+
+  const info = await transporter.sendMail({
+    from: SMTP_FROM || SMTP_USER || "no-reply@localhost",
+    to,
+    subject,
+    text,
+  });
+
+  console.log("📧 Email sent:", info.messageId, "→", to);
+}
+
+async function sendOrderAdminEmail({ method, order, items }) {
+  if (!ADMIN_EMAIL) {
+    console.warn("⚠ No ADMIN_EMAIL set; skipping order email");
+    return;
+  }
+  if (!order) {
+    console.warn("⚠ sendOrderAdminEmail called without order");
+    return;
+  }
+
+  const lineItems =
+    Array.isArray(items) && items.length
+      ? items
+          .map(
+            (it) =>
+              `- ${it.name} x ${it.qty} @ $${Number(it.price).toFixed(2)} = $${(
+                Number(it.price) * Number(it.qty)
+              ).toFixed(2)}`
+          )
+          .join("\n")
+      : "(no item details available)";
+
+  const subject = `New ${method.toUpperCase()} order: ${
+    order.reference || order.draft_id || ""
+  }`;
+
+  const text = `New order received
+
+Method: ${method}
+Status: ${order.status || ""}
+Order ref: ${order.reference || order.draft_id || ""}
+
+Customer:
+- Name: ${order.full_name || ""}
+- Email: ${order.email || ""}
+- Phone: ${order.phone || ""}
+
+Total: $${Number(order.amount ?? 0).toFixed(2)} ${String(
+    order.currency || "cad"
+  ).toUpperCase()}
+
+Items:
+${lineItems}
+`;
+
+  try {
+    await sendEmail({ to: ADMIN_EMAIL, subject, text });
+  } catch (err) {
+    console.error("❌ Failed to send order admin email:", err);
+  }
+}
+/* ---------- END SMTP Helpers ---------- */
+
 const feBaseUrl = () => {
   const url = process.env.FRONTEND_URL || "http://localhost:4200";
   if (!/^https?:\/\//.test(url)) throw new Error(`FRONTEND_URL is invalid (got "${url}")`);
@@ -346,6 +446,13 @@ app.post(
         }
       }
 
+      // ✅ NEW: send admin email summarizing this Stripe order
+      await sendOrderAdminEmail({
+        method: "stripe",
+        order,
+        items: normalizedItems,
+      });
+
       return res.sendStatus(200);
     } catch (err) {
       console.error("❌ Stripe webhook error:", err);
@@ -541,6 +648,12 @@ app.post(
         });
       }
 
+      // ✅ NEW: send admin email for E-transfer order
+      await sendOrderAdminEmail({
+        method: "etransfer",
+        order: orderRow,
+        items: normalizedItems,
+      });
 
       return res.json({ status: "success", order: orderRow });
 
@@ -641,6 +754,12 @@ app.post(
         await decrementInventory(row);
       }
 
+      // ✅ NEW: send admin email for PayPal order
+      await sendOrderAdminEmail({
+        method: "paypal",
+        order,
+        items: itemsToInsert,
+      });
 
       return res.json({ status: "success", order });
     } catch (err) {
