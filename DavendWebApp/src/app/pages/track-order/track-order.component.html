@@ -1,65 +1,168 @@
 <app-header></app-header>
+
 <section class="track-order-container">
-    <div class="track-order-card">
-      <h1>Track Your Order</h1>
-      <p class="subtitle">
-        Enter your <strong>Order ID</strong> or <strong>Email Address</strong> below to view your order status.
-      </p>
-  
-      <form class="track-form" (ngSubmit)="checkOrder()">
-        <input
-          type="text"
-          [(ngModel)]="searchTerm"
-          name="search"
-          placeholder="Order ID or Email Address"
-        />
-        <button type="button" (click)="checkOrder()">Check Status</button>
-      </form>
-  
-      <!-- ✅ Show Result -->
-      <div *ngIf="result" class="result-card fade-in">
-        <h3>Order <span class="order-id">#{{ result.id }}</span></h3>
-        <p><strong>Customer:</strong> {{ result.customerName }}</p>
-        <p><strong>Items:</strong> {{ result.items }}</p>
-        <p><strong>Date:</strong> {{ result.date }}</p>
-        <p>
-          <strong>Status:</strong>
-          <span
-            class="status-badge"
-            [style.background]="getStatusColor(result.status)"
-          >
-            {{ result.status }}
-          </span>
-        </p>
-  
-        <!-- ✅ Progress Bar -->
-        <div class="progress-container">
-          <div
-            class="progress-bar"
-            [style.width.%]="getProgressPercent(result.status)"
-          ></div>
-        </div>
-  
-        <!-- ✅ Last Updated -->
-        <p class="last-updated" *ngIf="result.lastUpdated">
-          Last Updated: {{ result.lastUpdated }}
-        </p>
+  <div class="track-order-card">
+    <h1>Track Your Order</h1>
+    <p class="subtitle">
+      Enter your <strong>Order ID</strong> or <strong>Email Address</strong> below to view your order status.
+    </p>
+
+    <form class="track-form" (ngSubmit)="checkOrder()">
+      <input
+        type="text"
+        [(ngModel)]="searchTerm"
+        name="search"
+        placeholder="Order ID or Email Address"
+      />
+      <button type="submit" [disabled]="loading">
+        {{ loading ? 'Checking...' : 'Check Status' }}
+      </button>
+    </form>
+
+    <!-- Error message -->
+    <div class="error-message" *ngIf="errorMessage">
+      {{ errorMessage }}
+    </div>
+
+<!-- Multiple orders found for email -->
+<div class="orders-list fade-in" *ngIf="matchingOrders.length > 1">
+  <div class="orders-list-header">
+    <h3>We found multiple orders for {{ searchTerm }}</h3>
+    <p>Select an order to view its status:</p>
+  </div>
+
+  <div class="orders-list-table-header">
+    <span class="col-id">Order #</span>
+    <span class="col-date">Date</span>
+    <span class="col-amount">Amount</span>
+    <span class="col-method">Method</span>
+    <span class="col-status">Status</span>
+  </div>
+
+  <div class="orders-list-rows">
+    <button
+      *ngFor="let o of matchingOrders"
+      type="button"
+      class="order-select-row"
+      (click)="loadOrderById(o.draft_id)"
+    >
+      <span class="col-id">#{{ o.draft_id }}</span>
+      <span class="col-date">
+        {{ o.created_at | date: 'MMM d, y, h:mm a' }}
+      </span>
+      <span class="col-amount" *ngIf="o.amount">
+        {{ (o.amount / 100) | currency: (o.currency || 'CAD') }}
+      </span>
+      <span class="col-amount" *ngIf="!o.amount">
+        —
+      </span>
+      <span class="col-method">
+        {{ o.method || '—' }}
+      </span>
+      <span class="col-status">
+        <span
+          class="order-status-pill"
+          [style.backgroundColor]="getStatusColor(normalizeStatus(o.status))"
+        >
+          {{ getStatusLabel(normalizeStatus(o.status)) }}
+        </span>
+      </span>
+    </button>
+  </div>
+</div>
+
+
+<!-- Single order details -->
+<div class="order-details fade-in" *ngIf="order">
+  <div class="order-header">
+    <div class="order-header-main">
+      <h2>Order #{{ order.id }}</h2>
+      <p class="order-date">{{ order.date }}</p>
+    </div>
+    <span
+      class="status-badge"
+      [style.backgroundColor]="getStatusColor(order.status)"
+    >
+      {{ getStatusLabel(order.status) }}
+    </span>
+  </div>
+
+  <div class="order-body">
+    <div class="order-section">
+      <h3>Customer</h3>
+      <div class="order-kv">
+        <span class="label">Name</span>
+        <span class="value">{{ order.customerName }}</span>
       </div>
-  
-      <!-- ⚠️ Show Not Found -->
-      <div *ngIf="notFound" class="not-found fade-in">
-        <p>No order found. Please check your ID or email and try again.</p>
+      <div class="order-kv" *ngIf="order.email">
+        <span class="label">Email</span>
+        <span class="value">{{ order.email }}</span>
       </div>
-  
-      <!-- ℹ️ Info Section -->
-      <div class="info-section">
-        <h3>Need Help?</h3>
-        <p>
-          If you’re having trouble finding your order number, please contact our support team at
-          <a href="mailto:info@davendpunch.ca">info&#64;davendpunch.ca</a>
-          or call <strong>905-670-9144</strong>.
-        </p>
+      <div class="order-kv" *ngIf="order.phone">
+        <span class="label">Phone</span>
+        <span class="value">{{ order.phone }}</span>
       </div>
     </div>
-  </section>
-  <app-footer></app-footer>
+
+    <div class="order-section">
+      <h3>Items</h3>
+      <div class="order-kv">
+        <span class="label">Summary</span>
+        <span class="value">{{ order.items }}</span>
+      </div>
+    </div>
+
+    <div class="order-section" *ngIf="order.notes">
+      <h3>Notes</h3>
+      <div class="order-kv">
+        <span class="label">Message</span>
+        <span class="value">{{ order.notes }}</span>
+      </div>
+    </div>
+
+    <div class="order-section" *ngIf="order.lastUpdated">
+      <h3>Last Updated</h3>
+      <div class="order-kv">
+        <span class="label">Timestamp</span>
+        <span class="value">{{ order.lastUpdated }}</span>
+      </div>
+    </div>
+
+    <div class="order-progress">
+      <div class="progress-label">
+        <span>Order Progress</span>
+        <span>{{ getProgressPercent(order.status) }}%</span>
+      </div>
+      <div class="progress-bar">
+        <div
+          class="progress-bar-fill"
+          [style.width.%]="getProgressPercent(order.status)"
+          [style.backgroundColor]="getStatusColor(order.status)"
+        ></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+    <!-- No result state -->
+    <div
+      class="no-order"
+      *ngIf="hasSearched && !loading && !order && !matchingOrders.length && !errorMessage"
+    >
+      <p>No order found. Please check your ID or email and try again.</p>
+    </div>
+
+    <!-- Info Section -->
+    <div class="info-section">
+      <h3>Need Help?</h3>
+      <p>
+        If you’re having trouble finding your order number, please contact our support team at
+        <a href="mailto:info@davendpunch.ca">info&#64;davendpunch.ca</a>
+        or call <strong>905-670-9144</strong>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<app-footer></app-footer>

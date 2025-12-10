@@ -545,6 +545,29 @@ export class SupabaseService {
     };
   }
 
+  async fetchOrdersByEmail(email: string): Promise<DbOrder[]> {
+    const value = (email || '').trim();
+    if (!value) {
+      return [];
+    }
+
+    const { data, error } = await this.supabase
+      .from('Orders')
+      .select(
+        'draft_id, created_at, amount, currency, status, method, full_name, email, phone, message'
+      )
+      .eq('email', value)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching orders by email', error.message || error);
+      return [];
+    }
+
+    return (data ?? []) as DbOrder[];
+  }
+
+
   async uploadAdditionalProductImage(file: File): Promise<string> {
     const ext = file.name.split('.').pop();
     const fileName = `${crypto.randomUUID()}.${ext}`;

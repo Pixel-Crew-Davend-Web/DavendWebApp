@@ -321,12 +321,17 @@
   .callout.warn { background: #3a2a15; border-color: #7a5a2b; color: #ffd7a8; }
 }
 
+/* extra tweaks */
 .inv-shell {
   min-height: 100vh;
 }
 
-.history {
-  font-size: 0.85rem;
-  color: #475569;
-  max-width: 250px;
+.status-cell {
+  text-align: center;
+}
+
+.status-sub {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: #6b7280;
 }

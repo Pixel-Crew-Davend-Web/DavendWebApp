@@ -68,12 +68,7 @@
               <th class="sticky">Method</th>
               <th class="sticky">Date</th>
               <th class="sticky">Status</th>
-
-              <!-- NEW: Reference column header -->
-              <th class="sticky">Reference</th>
-
               <th class="sticky">Actions</th>
-              <th class="sticky">History</th>
             </tr>
           </thead>
 
@@ -87,26 +82,22 @@
               </td>
 
               <td>{{ o.items }}</td>
+
               <td class="t-right">
                 {{ o.amount | currency:(o.currency || 'CAD'):'symbol-narrow':'1.2-2' }}
               </td>
 
-              <td>{{ o.method || '—' }}</td>
-              <td>{{ o.date }}</td>
-
               <td>
-                <span [ngClass]="statusClass(o.status)">{{ o.status }}</span>
+                {{ formatMethod(o.method) }}
               </td>
 
-              <!-- NEW: Reference number (only when Pending) -->
-              <td>
-                <ng-container *ngIf="o.status === 'Pending'; else blankRef">
-                  <span class="ref-pill">{{ o.reference || '—' }}</span>
-                </ng-container>
+              <td>{{ o.date }}</td>
 
-                <ng-template #blankRef>
-                  —
-                </ng-template>
+              <td class="status-cell">
+                <span [ngClass]="statusClass(o.status)">{{ o.status }}</span>
+                <div class="status-sub" *ngIf="o.history.length">
+                  {{ o.history.length }} update{{ o.history.length > 1 ? 's' : '' }}
+                </div>
               </td>
 
               <td class="row-actions">
@@ -122,14 +113,6 @@
                   <button class="btn btn-primary" (click)="saveEdit(o)">Save</button>
                   <button class="btn btn-ghost" (click)="cancelEdit(o)">Cancel</button>
                 </div>
-              </td>
-
-              <td class="history">
-                <ng-container *ngIf="o.history.length; else noHist">
-                  <div *ngFor="let h of o.history">• {{ h }}</div>
-                </ng-container>
-
-                <ng-template #noHist>• No changes yet</ng-template>
               </td>
             </tr>
           </tbody>
@@ -168,14 +151,13 @@
           <!-- Payment -->
           <section class="modal-section">
             <h4>Payment & Status</h4>
-            <p><strong>Method:</strong> {{ selected.method || '—' }}</p>
+            <p><strong>Method:</strong> {{ formatMethod(selected.method) }}</p>
             <p><strong>Status:</strong> {{ selected.status }}</p>
             <p><strong>Date:</strong> {{ selected.date }}</p>
             <p>
               <strong>Amount:</strong>
               {{ selected.amount | currency:(selected.currency || 'CAD'):'symbol-narrow':'1.2-2' }}
             </p>
-            <p><strong>Reference:</strong> {{ selected.reference || '—' }}</p>
           </section>
 
           <!-- Items -->
@@ -190,6 +172,7 @@
             <p>{{ selected.notes || '—' }}</p>
           </section>
         </div>
+
         <section class="modal-section">
           <h4>History</h4>
 
@@ -204,13 +187,10 @@
           </ng-template>
         </section>
 
-
         <div class="modal-actions">
           <button class="btn btn-ghost" (click)="closeDetails()">Close</button>
         </div>
       </div>
     </div>
-
-
   </main>
 </div>

@@ -78,6 +78,29 @@ export class AdminOrdersComponent implements OnInit {
     }
   }
 
+  formatMethod(method: string | null | undefined): string {
+  if (!method) return '—';
+
+  const value = method.toLowerCase().trim();
+
+  switch (value) {
+    case 'stripe':
+      return 'Stripe';
+    case 'etransfer':
+    case 'e-transfer':
+      return 'E-Transfer';
+    case 'paypal':
+      return 'PayPal';
+    case 'card':
+    case 'credit':
+    case 'creditcard':
+      return 'Credit Card';
+    default:
+      // Fallback: capitalise first letter only
+      return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+}
+
   async loadOrders() {
     this.loading = true;
     this.errorMsg = '';
