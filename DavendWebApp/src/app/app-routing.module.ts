@@ -14,6 +14,7 @@ import { AdminOrdersComponent } from './pages/admin-orders/admin-orders.componen
 import { TrackOrderComponent } from './pages/track-order/track-order.component';
 import { ReportsComponent } from './pages/reports-page/reports-page.component';
 import { ManageServicesComponent } from './pages/manage-services/manage-services.component';
+import { AccountSettingsComponent } from './pages/account-settings/account-settings.component';
 
 const routes: Routes = [
   { path: '', component: LandingPageComponent },
@@ -29,6 +30,7 @@ const routes: Routes = [
   { path: 'success/:id', component: SuccessComponent },
   { path: 'track-order', component: TrackOrderComponent }, 
   { path: "reports", component: ReportsComponent, canActivate: [AuthGuard] },
+  { path: "adminsettings", component: AccountSettingsComponent, canActivate: [AuthGuard] },
   { path: "manage-services", component: ManageServicesComponent, canActivate: [AuthGuard]},
   { path: '**', redirectTo: '' } 
 ];

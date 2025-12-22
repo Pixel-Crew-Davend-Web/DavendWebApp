@@ -22,6 +22,7 @@ import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dial
 import { TrackOrderComponent } from './pages/track-order/track-order.component'; 
 import { ReportsComponent } from './pages/reports-page/reports-page.component';
 import { ManageServicesComponent } from './pages/manage-services/manage-services.component';
+import { AccountSettingsComponent } from './pages/account-settings/account-settings.component';
 
 
 @NgModule({
@@ -41,7 +42,8 @@ import { ManageServicesComponent } from './pages/manage-services/manage-services
     AdminOrdersComponent,
     TrackOrderComponent,
     ReportsComponent,
-    ManageServicesComponent
+    ManageServicesComponent,
+    AccountSettingsComponent
   ],
   imports: [
     BrowserModule,

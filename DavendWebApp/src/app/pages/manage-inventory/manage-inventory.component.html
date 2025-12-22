@@ -364,7 +364,7 @@
             <hr />
 
             <h4>Existing Images</h4>
-            <div class="image-grid" *ngIf="editingProductImages?.length">
+            <div class="image-grid" *ngIf="editingProductImages.length">
               <div *ngFor="let img of editingProductImages" class="image-item">
                 <img [src]="getImageUrl(img.image_path)" class="extra-img-preview" />
                 <button class="btn btn-danger small" (click)="deleteAdditionalImage(img)">🗑 Delete</button>
