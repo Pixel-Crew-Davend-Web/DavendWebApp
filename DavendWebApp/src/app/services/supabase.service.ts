@@ -174,6 +174,21 @@ export class SupabaseService {
     return data?.id || null;
   }
 
+  // Get Admin Params by ID
+  async getAdminParamsByID(adminID: string) {
+    const { data, error } = await this.supabase
+      .from('AdminUsers')
+      .select('*')
+      .eq('id', adminID)
+      .single();
+
+    if (error) {
+      console.error('Error fetching admin params:', error.message);
+      throw error;
+    }
+    return data || null;
+  }
+
   // Get Admin Nickname by ID
   async getAdminNickNameByID(adminID: string) {
     const { data, error } = await this.supabase
@@ -326,10 +341,7 @@ export class SupabaseService {
       throw error;
     }
   }
-  private readonly allowedTypes = new Set<string>([
-    'image/jpeg',
-    'image/png',
-  ]);
+  private readonly allowedTypes = new Set<string>(['image/jpeg', 'image/png']);
 
   async uploadProductAsset(file: File): Promise<string> {
     if (!this.allowedTypes.has(file.type)) {
@@ -339,7 +351,11 @@ export class SupabaseService {
     // Optional: validate extension too (defense-in-depth)
     const lower = (file.name || '').toLowerCase();
     if (
-      !(lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png'))
+      !(
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png')
+      )
     ) {
       throw new Error('Only .jpg, .jpeg, or .png files are allowed.');
     }
@@ -428,8 +444,6 @@ export class SupabaseService {
       );
       throw error;
     }
-
-    
 
     const orders = (data ?? []) as DbOrder[];
 
@@ -567,7 +581,6 @@ export class SupabaseService {
     return (data ?? []) as DbOrder[];
   }
 
-
   async uploadAdditionalProductImage(file: File): Promise<string> {
     const ext = file.name.split('.').pop();
     const fileName = `${crypto.randomUUID()}.${ext}`;
@@ -662,20 +675,19 @@ export class SupabaseService {
   }
 
   async updateOrderHistory(draftId: string, history: any[]): Promise<void> {
-  const id = draftId.trim();
-  if (!id) throw new Error("Missing draft_id");
+    const id = draftId.trim();
+    if (!id) throw new Error('Missing draft_id');
 
-  const { error } = await this.supabase
-    .from("Orders")
-    .update({ history })
-    .eq("draft_id", id);
+    const { error } = await this.supabase
+      .from('Orders')
+      .update({ history })
+      .eq('draft_id', id);
 
-  if (error) {
-    console.error("Error updating order history:", error);
-    throw error;
+    if (error) {
+      console.error('Error updating order history:', error);
+      throw error;
+    }
   }
-}
-
 
   async generateReportCustomer(from: any, to: any) {
     from = new Date(from);

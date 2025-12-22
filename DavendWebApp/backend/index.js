@@ -27,7 +27,9 @@ const requireEnv = (name, validate) => {
   return value;
 };
 
-const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY", (v) => v.startsWith("sk_"));
+const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY", (v) =>
+  v.startsWith("sk_")
+);
 const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
 
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
@@ -40,7 +42,10 @@ const PAYPAL_CLIENT_SECRET = requireEnv("PAYPAL_CLIENT_SECRET");
 const payPalEnv =
   PAYPAL_ENV === "live"
     ? new paypal.core.LiveEnvironment(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET)
-    : new paypal.core.SandboxEnvironment(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET);
+    : new paypal.core.SandboxEnvironment(
+        PAYPAL_CLIENT_ID,
+        PAYPAL_CLIENT_SECRET
+      );
 const payPalClient = new paypal.core.PayPalHttpClient(payPalEnv);
 
 /* ---------- SMTP + Order Email Helpers (ADDED) ---------- */
@@ -49,12 +54,8 @@ const SMTP_PORT = Number(process.env.SMTP_PORT || "587");
 const SMTP_USER = process.env.SMTP_USER || "";
 const SMTP_PASS = process.env.SMTP_PASS || "";
 const SMTP_FROM =
-  process.env.SMTP_FROM ||
-  (SMTP_USER ? `Davend Web App <${SMTP_USER}>` : "");
-const ADMIN_EMAIL =
-  process.env.ADMIN_EMAIL ||
-  SMTP_USER ||
-  "";
+  process.env.SMTP_FROM || (SMTP_USER ? `Davend Web App <${SMTP_USER}>` : "");
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || SMTP_USER || "";
 
 function smtpConfigured() {
   return !!SMTP_HOST && !!SMTP_PORT && !!SMTP_USER && !!SMTP_PASS;
@@ -245,7 +246,8 @@ ${lineItems}
 
 const feBaseUrl = () => {
   const url = process.env.FRONTEND_URL || "http://localhost:4200";
-  if (!/^https?:\/\//.test(url)) throw new Error(`FRONTEND_URL is invalid (got "${url}")`);
+  if (!/^https?:\/\//.test(url))
+    throw new Error(`FRONTEND_URL is invalid (got "${url}")`);
   return url;
 };
 const toNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -293,14 +295,16 @@ async function fetchAnyProductOrVariant(id) {
   // Try variant first
   const { data: variant } = await supabase
     .from("ProductVariants")
-    .select(`
+    .select(
+      `
       id,
       price,
       size,
       length_value,
       product_id,
       Products ( name )
-    `)
+    `
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -316,7 +320,7 @@ async function fetchAnyProductOrVariant(id) {
       id: variant.id,
       name: `${variant.Products?.name} (${variant.size} - ${variant.length_value})`,
       unit_amount: priceCents,
-      product_id: variant.product_id
+      product_id: variant.product_id,
     };
   }
 
@@ -358,8 +362,6 @@ async function paypalGenerateAccessToken() {
   return data.access_token;
 }
 
-
-
 async function fetchProduct(productIdRaw) {
   const productId = String(productIdRaw || "").trim();
   if (!productId) throw new Error("Product not found: <empty id>");
@@ -371,20 +373,26 @@ async function fetchProduct(productIdRaw) {
     .maybeSingle();
 
   if (error) throw error;
-  if (!data || data.active === false) throw new Error(`Product not found: ${productId}`);
+  if (!data || data.active === false)
+    throw new Error(`Product not found: ${productId}`);
 
   const unit_amount =
     typeof data.price_cents === "number" && Number.isFinite(data.price_cents)
       ? data.price_cents
       : Math.round(Number(data.price) * 100);
 
-  if (!(unit_amount > 0)) throw new Error(`Invalid price for product ${productId}`);
+  if (!(unit_amount > 0))
+    throw new Error(`Invalid price for product ${productId}`);
 
   return { id: data.id, name: data.name ?? `Item ${productId}`, unit_amount };
 }
 
 async function upsertOrder(order) {
-  const { data, error } = await supabase.from("Orders").upsert(order, { onConflict: "draft_id" }).select().single();
+  const { data, error } = await supabase
+    .from("Orders")
+    .upsert(order, { onConflict: "draft_id" })
+    .select()
+    .single();
   if (error) throw error;
   return data;
 }
@@ -478,10 +486,10 @@ app.post(
           const p = await fetchAnyProductOrVariant(it.id);
 
           normalizedItems.push({
-            product_id: p.id,             // product OR variant ID
-            name: p.name,                 // variant-aware display name
+            product_id: p.id, // product OR variant ID
+            name: p.name, // variant-aware display name
             qty: Number(it.qty ?? 1),
-            price: p.unit_amount / 100,   // unit price in dollars
+            price: p.unit_amount / 100, // unit price in dollars
           });
         }
       } catch (e) {
@@ -564,11 +572,9 @@ console.log("🔥 Stripe webhook mounted");
 
 app.use(bodyParser.json());
 
-
-
-
 // ---- Async wrapper & error middleware
-const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+const asyncHandler = (fn) => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch(next);
 
 /* ---------- Health ---------- */
 app.get("/", (_req, res) =>
@@ -616,10 +622,10 @@ app.post(
               name: p.name,
               metadata: {
                 product_id: p.id,
-                variant_parent: p.product_id ?? null
-              }
-            }
-          }
+                variant_parent: p.product_id ?? null,
+              },
+            },
+          },
         });
       }
 
@@ -634,9 +640,9 @@ app.post(
           currency: "cad",
           unit_amount: taxCents,
           product_data: {
-            name: "HST (13%)"
-          }
-        }
+            name: "HST (13%)",
+          },
+        },
       });
 
       // ============================================================
@@ -702,7 +708,7 @@ app.post(
         subtotalCents += unitCents * qty;
 
         normalizedItems.push({
-          product_id: p.id,           // variant OR product
+          product_id: p.id, // variant OR product
           name: p.name,
           price: unitCents / 100,
           qty,
@@ -731,7 +737,9 @@ app.post(
         postal_code: customer.postalCode || "",
       };
 
-      await supabase.from("Orders").upsert(orderRow, { onConflict: "draft_id" });
+      await supabase
+        .from("Orders")
+        .upsert(orderRow, { onConflict: "draft_id" });
 
       // ---------------------------
       // 3) Insert order items
@@ -756,7 +764,6 @@ app.post(
       });
 
       return res.json({ status: "success", order: orderRow });
-
     } catch (err) {
       console.error("❌ E-transfer error:", err);
       return res.status(500).json({ error: "Internal server error" });
@@ -788,7 +795,11 @@ app.post(
       console.log("💰 PayPal raw capture amount =", capturedTotal);
 
       // 2) If PayPal returns 0/NaN, recompute subtotal + 13% tax server-side
-      if ((!capturedTotal || Number.isNaN(capturedTotal)) && Array.isArray(items) && items.length > 0) {
+      if (
+        (!capturedTotal || Number.isNaN(capturedTotal)) &&
+        Array.isArray(items) &&
+        items.length > 0
+      ) {
         let subtotalCents = 0;
 
         for (const it of items) {
@@ -808,7 +819,10 @@ app.post(
         });
       }
 
-      console.log("📦 Final PayPal total that will be stored in DB:", capturedTotal);
+      console.log(
+        "📦 Final PayPal total that will be stored in DB:",
+        capturedTotal
+      );
 
       // 3) Upsert order with this final total
       const order = await upsertOrder({
@@ -871,8 +885,6 @@ app.post(
     }
   })
 );
-
-
 
 /* ---------- PayPal: CREATE ORDER ---------- */
 app.post(
@@ -937,7 +949,6 @@ app.post(
       })),
     };
 
-
     const order = {
       intent: "CAPTURE",
       purchase_units: [purchaseUnit],
@@ -971,7 +982,6 @@ app.post(
     return res.json({ id: data.id });
   })
 );
-
 
 /* ---------- Success helpers ---------- */
 app.get(
@@ -1132,8 +1142,17 @@ app.post(
   asyncHandler(async (req, res) => {
     const { fullName, email, phoneNumber, message, selectedService } = req.body;
     const file = req.file;
-    if (!fullName || !email || !phoneNumber || !message || !selectedService || !file)
-      return res.status(400).json({ message: "Missing required fields or file" });
+    if (
+      !fullName ||
+      !email ||
+      !phoneNumber ||
+      !message ||
+      !selectedService ||
+      !file
+    )
+      return res
+        .status(400)
+        .json({ message: "Missing required fields or file" });
 
     const testAccount = await nodemailer.createTestAccount();
     const transporter = nodemailer.createTransport({
@@ -1159,7 +1178,12 @@ ${message}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
-    res.status(200).json({ message: "Email sent successfully!", preview: nodemailer.getTestMessageUrl(info) });
+    res
+      .status(200)
+      .json({
+        message: "Email sent successfully!",
+        preview: nodemailer.getTestMessageUrl(info),
+      });
   })
 );
 
@@ -1169,7 +1193,8 @@ app.post(
   asyncHandler(async (req, res) => {
     const { fullName, email, subject, message } = req.body;
     const file = req.file ?? null;
-    if (!fullName || !email || !subject || !message) return res.status(400).json({ message: "Missing required fields" });
+    if (!fullName || !email || !subject || !message)
+      return res.status(400).json({ message: "Missing required fields" });
 
     const testAccount = await nodemailer.createTestAccount();
     const transporter = nodemailer.createTransport({
@@ -1189,89 +1214,212 @@ Email: ${email}
 
 Message:
 ${message}`,
-      ...(file ? { attachments: [{ filename: file.originalname, content: file.buffer }] } : {}),
+      ...(file
+        ? {
+            attachments: [
+              { filename: file.originalname, content: file.buffer },
+            ],
+          }
+        : {}),
     };
 
     const info = await transporter.sendMail(mailOptions);
-    res.status(200).json({ message: "Contact email sent!", preview: nodemailer.getTestMessageUrl(info) });
+    res
+      .status(200)
+      .json({
+        message: "Contact email sent!",
+        preview: nodemailer.getTestMessageUrl(info),
+      });
   })
 );
 
 /* ---------- Admin Authentication ---------- */
-app.post("/api/admin/signup", asyncHandler(async (req, res) => {
-  const { nickName, email, password } = req.body;
+app.post(
+  "/api/admin/signup",
+  asyncHandler(async (req, res) => {
+    const { nickName, email, password } = req.body;
 
-  if (!nickName || !email || !password)
-    return res.status(400).json({ success: false, message: "Missing fields" });
+    if (!nickName || !email || !password)
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing fields" });
 
-  // Hash password
-  const hashed = await bcrypt.hash(password, 10);
+    // Hash password
+    const hashed = await bcrypt.hash(password, 10);
 
-  // Insert new admin user
-  const { data, error } = await supabase
-    .from("AdminUsers")
-    .insert({
-      nickName,
-      email: email.toLowerCase(),
-      password: hashed
-    })
-    .select()
-    .single();
+    // Insert new admin user
+    const { data, error } = await supabase
+      .from("AdminUsers")
+      .insert({
+        nickName,
+        email: email.toLowerCase(),
+        password: hashed,
+      })
+      .select()
+      .single();
 
-  if (error) {
-    console.error(error);
-    return res.json({ success: false, message: "Error creating user" });
+    if (error) {
+      console.error(error);
+      return res.json({ success: false, message: "Error creating user" });
+    }
+
+    return res.json({ success: true, adminID: data.id });
+  })
+);
+
+// ===============================
+// Admin Profile: GET + UPDATE
+// ===============================
+
+// Helper: validate bearer token for a given adminId
+async function requireValidAdminToken(req, adminId) {
+  const auth = req.headers.authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+
+  if (!token) {
+    return { ok: false, status: 401, message: "Missing Authorization token" };
   }
 
-  return res.json({ success: true, adminID: data.id });
-}));
-
-
-app.post("/api/admin/login", asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-
-  const { data: admin, error } = await supabase
-    .from("AdminUsers")
-    .select("*")
-    .eq("email", email.toLowerCase())
+  const { data, error } = await supabase
+    .from("AdminLoginToken")
+    .select("ADMIN_TOKEN_KEY, ADMIN_TOKEN_EXPIRY")
+    .eq("AdminID", adminId)
     .maybeSingle();
 
-  if (!admin || error) {
-    return res.json({ success: false, message: "Invalid email or password" });
+  if (error || !data) {
+    return { ok: false, status: 401, message: "Invalid token" };
   }
 
-  // Compare password
-  const match = await bcrypt.compare(password, admin.password);
-  if (!match) {
-    return res.json({ success: false, message: "Invalid email or password" });
+  if (data.ADMIN_TOKEN_KEY !== token) {
+    return { ok: false, status: 401, message: "Token mismatch" };
   }
 
-  // Create a new login token
-  const token = crypto.randomUUID();
-  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+  const now = new Date();
+  const expiry = new Date(data.ADMIN_TOKEN_EXPIRY);
+  if (!(now < expiry)) {
+    return { ok: false, status: 401, message: "Token expired" };
+  }
 
-  // Insert or update AdminLoginToken table
-  const { error: tokenErr } = await supabase
-    .from("AdminLoginToken")
-    .upsert({
+  return { ok: true };
+}
+
+// Fetch current profile (optional but very useful for prefilling the form)
+app.get(
+  "/api/admin/profile/:adminId",
+  asyncHandler(async (req, res) => {
+    const adminId = req.params.adminId;
+
+    const authz = await requireValidAdminToken(req, adminId);
+    if (!authz.ok)
+      return res
+        .status(authz.status)
+        .json({ success: false, message: authz.message });
+
+    const { data, error } = await supabase
+      .from("AdminUsers")
+      .select("id, nickName, email")
+      .eq("id", adminId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Admin not found" });
+    }
+
+    return res.json({ success: true, profile: data });
+  })
+);
+
+// Update profile (hash password if provided)
+app.put(
+  "/api/admin/profile/:adminId",
+  asyncHandler(async (req, res) => {
+    const adminId = req.params.adminId;
+    const { nickName, email, password } = req.body || {};
+
+    const authz = await requireValidAdminToken(req, adminId);
+    if (!authz.ok)
+      return res
+        .status(authz.status)
+        .json({ success: false, message: authz.message });
+
+    if (!nickName || !email) {
+      return res
+        .status(400)
+        .json({ success: false, message: "nickName and email are required" });
+    }
+
+    const updateData = {
+      nickName: String(nickName).trim(),
+      email: String(email).trim().toLowerCase(),
+    };
+
+    if (password && String(password).trim() !== "") {
+      updateData.password = await bcrypt.hash(String(password), 10);
+    }
+
+    const { error } = await supabase
+      .from("AdminUsers")
+      .update(updateData)
+      .eq("id", adminId);
+
+    if (error) {
+      console.error("❌ Admin profile update failed:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to update admin profile" });
+    }
+
+    return res.json({ success: true });
+  })
+);
+
+app.post(
+  "/api/admin/login",
+  asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+
+    const { data: admin, error } = await supabase
+      .from("AdminUsers")
+      .select("*")
+      .eq("email", email.toLowerCase())
+      .maybeSingle();
+
+    if (!admin || error) {
+      return res.json({ success: false, message: "Invalid email or password" });
+    }
+
+    // Compare password
+    const match = await bcrypt.compare(password, admin.password);
+    if (!match) {
+      return res.json({ success: false, message: "Invalid email or password" });
+    }
+
+    // Create a new login token
+    const token = crypto.randomUUID();
+    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+
+    // Insert or update AdminLoginToken table
+    const { error: tokenErr } = await supabase.from("AdminLoginToken").upsert({
       AdminID: admin.id,
       ADMIN_TOKEN_KEY: token,
-      ADMIN_TOKEN_EXPIRY: expiry
+      ADMIN_TOKEN_EXPIRY: expiry,
     });
 
-  if (tokenErr) {
-    console.error(tokenErr);
-    return res.json({ success: false, message: "Failed to set login token" });
-  }
+    if (tokenErr) {
+      console.error(tokenErr);
+      return res.json({ success: false, message: "Failed to set login token" });
+    }
 
-  return res.json({
-    success: true,
-    adminID: admin.id,
-    adminToken: token,
-    adminTokenExpiry: expiry
-  });
-}));
-
+    return res.json({
+      success: true,
+      adminID: admin.id,
+      adminToken: token,
+      adminTokenExpiry: expiry,
+    });
+  })
+);
 
 cron.schedule("0 * * * *", async () => {
   // Runs every hour at minute 0
@@ -1300,15 +1448,22 @@ cron.schedule("0 * * * *", async () => {
   }
 });
 
-
-
 /* ---------- Errors ---------- */
 app.use((err, _req, res, _next) => {
-  console.error("❌ Unhandled error:", err?.raw?.message || err?.message || err);
-  res.status(500).json({ error: err?.raw?.message || err?.message || "Internal server error" });
+  console.error(
+    "❌ Unhandled error:",
+    err?.raw?.message || err?.message || err
+  );
+  res
+    .status(500)
+    .json({
+      error: err?.raw?.message || err?.message || "Internal server error",
+    });
 });
 
 console.log("🚀 Booting server now...");
 
 /* ---------- Start ---------- */
-app.listen(PORT, () => console.log(`✅ Server running at http://localhost:${PORT}`));
+app.listen(PORT, () =>
+  console.log(`✅ Server running at http://localhost:${PORT}`)
+);

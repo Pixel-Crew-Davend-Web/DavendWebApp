@@ -1,0 +1,93 @@
+<div class="settings-page">
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/comp-nobg.png" alt="company logo" />
+      <h1>Account Settings</h1>
+    </div>
+
+    <div class="nav-buttons">
+      <button routerLink="/" class="btn-header btn-secondary">🏠 Home</button>
+      <button routerLink="/login" class="btn-header btn-secondaryT">
+        🔐 Admin Dashboard
+      </button>
+      <button (click)="logout()" class="btn-header btn-danger">
+        🚪 Logout
+      </button>
+    </div>
+  </header>
+
+  <div class="settings-card">
+    <h1>Account Settings</h1>
+    <p class="sub">Update your nickname, email, and password.</p>
+
+    <div *ngIf="loading" class="state">Loading…</div>
+
+    <div *ngIf="!loading">
+      <div *ngIf="errorMsg" class="alert alert-error">{{ errorMsg }}</div>
+      <div *ngIf="successMsg" class="alert alert-success">{{ successMsg }}</div>
+
+      <form [formGroup]="form" (ngSubmit)="save()">
+        <div class="field">
+          <label>Nickname</label>
+          <input
+            type="text"
+            formControlName="nickName"
+            placeholder="Your nickname"
+          />
+          <small class="err" *ngIf="f.nickName.touched && f.nickName.invalid">
+            Nickname is required (2–40 chars).
+          </small>
+        </div>
+
+        <div class="field">
+          <label>Email</label>
+          <input
+            type="email"
+            formControlName="email"
+            placeholder="you@email.com"
+          />
+          <small class="err" *ngIf="f.email.touched && f.email.invalid">
+            Enter a valid email.
+          </small>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="field">
+          <label>New Password</label>
+          <input
+            type="password"
+            formControlName="password"
+            placeholder="Leave blank to keep current password"
+          />
+          <small class="hint"
+            >Leave blank if you don’t want to change it. Min 8
+            characters.</small
+          >
+          <small class="err" *ngIf="f.password.touched && f.password.invalid">
+            Password must be at least 8 characters.
+          </small>
+        </div>
+
+        <div class="field">
+          <label>Confirm New Password</label>
+          <input
+            type="password"
+            formControlName="confirmPassword"
+            placeholder="Re-type new password"
+          />
+          <small
+            class="err"
+            *ngIf="form.touched && form.errors?.['passwordMismatch']"
+          >
+            Passwords do not match.
+          </small>
+        </div>
+
+        <button class="btn" type="submit" [disabled]="saving || loading">
+          {{ saving ? "Saving…" : "Save Changes" }}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

@@ -4,7 +4,7 @@ import { SupabaseService } from './supabase.service';
 import e from 'cors';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class AdminAuthService {
   private loggedIn = new BehaviorSubject<boolean>(this.getStoredLoginState());
@@ -19,42 +19,46 @@ export class AdminAuthService {
     return this.loggedIn.asObservable();
   }
 
- async signUpAdmin(nickName: string, email: string, password: string) {
-  const result = await fetch("https://davendwebappservice.onrender.com/api/admin/signup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ nickName, email, password }),
-  }).then(res => res.json());
+  async signUpAdmin(nickName: string, email: string, password: string) {
+    const result = await fetch(
+      'https://davendwebappservice.onrender.com/api/admin/signup',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickName, email, password }),
+      }
+    ).then((res) => res.json());
 
-  return result.success;
-}
+    return result.success;
+  }
 
+  async loginAdmin(email: string, password: string) {
+    const result = await fetch(
+      'https://davendwebappservice.onrender.com/api/admin/login',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      }
+    ).then((res) => res.json());
 
-async loginAdmin(email: string, password: string) {
-  const result = await fetch("https://davendwebappservice.onrender.com/api/admin/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  }).then(res => res.json());
+    if (!result.success) return false;
 
-  if (!result.success) return false;
+    const adminId = await this.supabaseAuth.getAdminIDByEmail(email);
+    const adminNickName = await this.supabaseAuth.getAdminNickNameByID(adminId);
 
-  const adminId = await this.supabaseAuth.getAdminIDByEmail(email);
-  const adminNickName = await this.supabaseAuth.getAdminNickNameByID(adminId);
+    localStorage.setItem('adminToken', result.adminToken);
+    localStorage.setItem('adminTokenExpiry', result.adminTokenExpiry);
+    localStorage.setItem('email', email);
+    localStorage.setItem('adminNickName', adminNickName);
+    localStorage.setItem('isLoggedIn', 'true');
+    this.loggedIn.next(true);
 
-  localStorage.setItem('adminToken', result.adminToken);
-  localStorage.setItem('adminTokenExpiry', result.adminTokenExpiry);
-  localStorage.setItem('email', email);
-  localStorage.setItem('adminNickName', adminNickName);
-  localStorage.setItem('isLoggedIn', 'true');
-  this.loggedIn.next(true);
-
-  return true;
-}
-
+    return true;
+  }
 
   logoutAdmin() {
-    this.supabaseAuth.logoutAdmin(); 
+    this.supabaseAuth.logoutAdmin();
     localStorage.removeItem('isLoggedIn');
     this.loggedIn.next(false);
     // location.reload();
@@ -64,10 +68,24 @@ async loginAdmin(email: string, password: string) {
     return this.supabaseAuth.getAdminIDByEmail(email);
   }
 
-  async isAdminTokenValid(userId: string, localToken?: string): Promise<boolean> {
-    const databaseToken = await this.supabaseAuth.getAdminToken(userId, localToken);
+  async getAdminParamsByID(adminId: string): Promise<any> {
+    return this.supabaseAuth.getAdminParamsByID(adminId);
+  }
 
-    if (!databaseToken || !databaseToken.ADMIN_TOKEN_KEY || !databaseToken.ADMIN_TOKEN_EXPIRY) {
+  async isAdminTokenValid(
+    userId: string,
+    localToken?: string
+  ): Promise<boolean> {
+    const databaseToken = await this.supabaseAuth.getAdminToken(
+      userId,
+      localToken
+    );
+
+    if (
+      !databaseToken ||
+      !databaseToken.ADMIN_TOKEN_KEY ||
+      !databaseToken.ADMIN_TOKEN_EXPIRY
+    ) {
       return false;
     }
 
@@ -76,5 +94,48 @@ async loginAdmin(email: string, password: string) {
     const tokenExpiryTime = new Date(databaseToken.ADMIN_TOKEN_EXPIRY);
 
     return currentTime < tokenExpiryTime;
+  }
+
+  async getAdminProfile(adminId: string) {
+    const token = localStorage.getItem('adminToken') || '';
+
+    const res = await fetch(
+      `https://davendwebappservice.onrender.com/api/admin/profile/${adminId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return res.json();
+  }
+
+  async updateAdminProfile(
+    adminId: string,
+    nickName: string,
+    email: string,
+    password?: string
+  ) {
+    const token = localStorage.getItem('adminToken') || '';
+
+    const body: any = { nickName, email };
+    if (password && password.trim() !== '') body.password = password;
+
+    const res = await fetch(
+      `https://davendwebappservice.onrender.com/api/admin/profile/${adminId}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    return res.json();
   }
 }
