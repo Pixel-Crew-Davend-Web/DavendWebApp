@@ -60,7 +60,7 @@ function smtpConfigured() {
   return !!SMTP_HOST && !!SMTP_PORT && !!SMTP_USER && !!SMTP_PASS;
 }
 
-async function sendEmail({ to, subject, text }) {
+async function sendEmail({ to, subject, text, html }) {
   if (!smtpConfigured()) {
     console.warn("📭 Email not sent: SMTP not fully configured");
     return;
@@ -85,6 +85,7 @@ async function sendEmail({ to, subject, text }) {
     to,
     subject,
     text,
+    ...(html ? { html } : {}),
   });
 
   console.log("📧 Email sent:", info.messageId, "→", to);
@@ -112,7 +113,7 @@ async function sendOrderAdminEmail({ method, order, items }) {
           .join("\n")
       : "(no item details available)";
 
-  const subject = `New ${method.toUpperCase()} order: ${
+  const subject = `New ${String(method || "").toUpperCase()} order: ${
     order.reference || order.draft_id || ""
   }`;
 
@@ -135,12 +136,86 @@ Items:
 ${lineItems}
 `;
 
+  const safe = (v) =>
+    String(v ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+
+  const htmlItems =
+    Array.isArray(items) && items.length
+      ? items
+          .map((it) => {
+            const qty = Number(it.qty) || 0;
+            const price = Number(it.price) || 0;
+            const line = (qty * price).toFixed(2);
+            return `<tr>
+  <td style="padding:8px 10px;border-bottom:1px solid #eee;">${safe(it.name)}</td>
+  <td style="padding:8px 10px;text-align:right;border-bottom:1px solid #eee;">${qty}</td>
+  <td style="padding:8px 10px;text-align:right;border-bottom:1px solid #eee;">$${price.toFixed(2)}</td>
+  <td style="padding:8px 10px;text-align:right;border-bottom:1px solid #eee;">$${line}</td>
+</tr>`;
+          })
+          .join("")
+      : `<tr><td colspan="4" style="padding:8px 10px;border-bottom:1px solid #eee;">(no item details available)</td></tr>`;
+
+  const total = Number(order.amount ?? 0).toFixed(2);
+  const currency = String(order.currency || "cad").toUpperCase();
+
+  const html = `
+<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.4;color:#111;">
+  <h2 style="margin:0 0 10px;">New ${safe(String(method || "").toUpperCase())} Order</h2>
+
+  <div style="margin:0 0 14px;">
+    <div><strong>Status:</strong> ${safe(order.status || "")}</div>
+    <div><strong>Order ref:</strong> ${safe(order.reference || order.draft_id || "")}</div>
+  </div>
+
+  <div style="margin:0 0 14px;">
+    <div style="font-weight:bold;margin:0 0 6px;">Customer</div>
+    <div>${safe(order.full_name || "")}</div>
+    <div>${safe(order.email || "")}</div>
+    <div>${safe(order.phone || "")}</div>
+    <div style="margin-top:6px;">${safe(order.address || "")}</div>
+    <div>${safe(order.city || "")} ${safe(order.postal_code || "")}</div>
+  </div>
+
+  <table style="width:100%;border-collapse:collapse;border:1px solid #eee;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #eee;background:#fafafa;">Item</th>
+        <th style="text-align:right;padding:8px 10px;border-bottom:1px solid #eee;background:#fafafa;">Qty</th>
+        <th style="text-align:right;padding:8px 10px;border-bottom:1px solid #eee;background:#fafafa;">Price</th>
+        <th style="text-align:right;padding:8px 10px;border-bottom:1px solid #eee;background:#fafafa;">Line</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${htmlItems}
+    </tbody>
+  </table>
+
+  <div style="margin-top:12px;font-size:16px;">
+    <strong>Total:</strong> $${total} ${currency}
+  </div>
+
+  ${
+    order.message
+      ? `<div style="margin-top:12px;"><strong>Message:</strong> ${safe(order.message)}</div>`
+      : ""
+  }
+</div>
+`;
+
   try {
-    await sendEmail({ to: ADMIN_EMAIL, subject, text });
+    // IMPORTANT: pass BOTH text + html
+    await sendEmail({ to: ADMIN_EMAIL, subject, text, html });
   } catch (err) {
     console.error("❌ Failed to send order admin email:", err);
   }
 }
+
 /* ---------- END SMTP Helpers ---------- */
 
 const feBaseUrl = () => {
