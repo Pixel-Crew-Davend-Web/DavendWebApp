@@ -70,26 +70,51 @@ async function sendEmail({ to, subject, text, html }) {
     return;
   }
 
+  const host = SMTP_HOST || "smtp.gmail.com";
+  const port = Number(SMTP_PORT || 587);
+  const secure = port === 465; // true only for 465, false for 587
+
   const transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
+    host,
+    port,
+    secure,
     auth: {
       user: SMTP_USER,
       pass: SMTP_PASS,
     },
+
+    // For Gmail on 587: enforce TLS upgrade (STARTTLS)
+    requireTLS: !secure,
+
+    // TLS hardening + correct SNI
+    tls: {
+      servername: host,
+      minVersion: "TLSv1.2",
+    },
+
+    // Prevent hanging forever on cloud hosts
+    connectionTimeout: 15000, // 15s
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
   });
 
-  const info = await transporter.sendMail({
-    from: SMTP_FROM || SMTP_USER || "no-reply@localhost",
-    to,
-    subject,
-    text,
-    ...(html ? { html } : {}),
-  });
+  try {
+    const info = await transporter.sendMail({
+      from: SMTP_FROM || SMTP_USER || "no-reply@localhost",
+      to,
+      subject,
+      text,
+      ...(html ? { html } : {}),
+    });
 
-  console.log("📧 Email sent:", info.messageId, "→", to);
+    console.log("📧 Email sent:", info.messageId, "→", to);
+    return info;
+  } catch (err) {
+    console.error("❌ SMTP sendMail failed:", err);
+    throw err;
+  }
 }
+
 
 async function sendOrderAdminEmail({ method, order, items }) {
   if (!ADMIN_EMAIL) {
