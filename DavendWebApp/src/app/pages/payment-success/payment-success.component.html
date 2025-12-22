@@ -1,27 +1,26 @@
 <app-header></app-header>
-    <div class="full-width-image">
-      <img src="assets/bolts.png" alt="Banner Image">
-  
-      <!-- Bottom Overlay Banner with Text -->
-      <div class="image-overlay-bottom">
-        <div class="overlay-text" >
-          Thank you for your order!
-        </div>
-      </div>
-    </div>
 
-    <div class="success-container">
-  <!-- Success Icon + Message -->
+<div class="full-width-image">
+  <img src="assets/bolts.png" alt="Banner Image">
+
+  <div class="image-overlay-bottom">
+    <div class="overlay-text">
+      Thank you for your order!
+    </div>
+  </div>
+</div>
+
+<div class="success-container">
   <div class="success-header">
     <span class="success-icon">✔</span>
     <h1>Order Placed – Payment Successful</h1>
   </div>
+
   <p>
     Thanks for your payment, a confirmation email has been sent to
-    <strong>{{ order?.customer.email }}</strong>
+    <strong>{{ order?.customer?.email }}</strong>
   </p>
 
-  <!-- Order + Shipping Summary -->
   <div class="summary-box">
     <div class="order-summary">
       <h3>Order Summary:</h3>
@@ -33,15 +32,23 @@
 
     <div class="shipping-info">
       <h3>Shipping Information:</h3>
-      <p>{{ order?.customer.fullName }}</p>
-      <p>{{ order?.customer.phone }}</p>
-      <p>{{ order?.customer.address }}</p>
-      <p>{{ order?.customer.city }}, {{ order?.customer.postalCode }}</p>
+      <p>{{ order?.customer?.fullName }}</p>
+      <p>{{ order?.customer?.phone }}</p>
+      <p>{{ order?.customer?.address }}</p>
+      <p>{{ order?.customer?.city }}, {{ order?.customer?.postalCode }}</p>
     </div>
   </div>
 
-  <!-- Back to Home -->
-  <div class="actions">
+  <!-- FREE FALLBACK: mailto + copy -->
+  <div class="actions" style="margin-top: 14px; gap: 10px; display: flex; flex-wrap: wrap;">
+    <a class="btn" [href]="mailtoUrl" *ngIf="mailtoUrl">
+      Email order summary to us
+    </a>
+
+    <button class="btn" type="button" (click)="copySummary()" *ngIf="summaryText">
+      {{ copied ? 'Copied!' : 'Copy order summary' }}
+    </button>
+
     <a routerLink="/" class="btn">Back to Home</a>
   </div>
 </div>

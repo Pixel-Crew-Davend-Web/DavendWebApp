@@ -1,148 +1,13 @@
 <app-header></app-header>
 
-<div class="checkout-wrapper">
+<div class="checkout-page">
+  <div class="checkout-container">
+    <form [formGroup]="checkoutForm">
 
-  <!-- ===================== -->
-  <!--  CART SUMMARY CARD    -->
-  <!-- ===================== -->
-  <div class="card">
-    <h2>Order Summary</h2>
-
-    <div *ngIf="cartItems.length === 0" class="empty-cart">
-      <p>Your cart is empty.</p>
-    </div>
-
-    <div *ngFor="let item of cartItems" class="cart-item">
-      <img [src]="getImageUrl(item.imageURL)" class="item-image">
-
-      <div class="item-info">
-        <h3>{{ item.name }}</h3>
-        <p class="item-desc">{{ item.description }}</p>
-
-        <div class="item-meta">
-          <span>Unit Price: ${{ item.price.toFixed(2) }}</span>
-          <span>Qty: {{ item.qty }}</span>
-          <span>Total: ${{ item.totalPrice.toFixed(2) }}</span>
-        </div>
-
-        <div class="remove-section">
-          <input type="number" min="1" [max]="item.qty" [(ngModel)]="item.removeQty">
-          <button (click)="removeFromCart(item.id, item.removeQty)">Remove</button>
-        </div>
-      </div>
-    </div>
-
-    <div>
-      <button class="clear-cart-button" (click)="clearCart()">Clear Cart</button>
-    </div>
-
-    <div class="subtotal" *ngIf="cartItems.length > 0">
-      <span>Subtotal</span>
-      <strong>${{ total.toFixed(2) }}</strong>
-    </div>
-    <div class="tax" *ngIf="cartItems.length > 0">
-      <span>Tax (HST 13%)</span>
-      <strong>${{ tax.toFixed(2) }}</strong>
-    </div>
-
-    <div class="total" *ngIf="cartItems.length > 0">
-      <span>Total</span>
-      <strong>${{ grandTotal.toFixed(2) }}</strong>
-    </div>
-  </div>
-
-
-  <!-- ===================== -->
-  <!--  CHECKOUT FORM CARD   -->
-  <!-- ===================== -->
-  <div class="card" *ngIf="cartItems.length > 0">
-    <h2>Checkout Information</h2>
-
-    <form [formGroup]="checkoutForm" class="checkout-form">
-
-      <!-- CONTACT INFO -->
-      <div class="section-title">Contact Information</div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Full Name</label>
-          <input formControlName="fullName" type="text">
-        </div>
-
-        <div class="form-group">
-          <label>Email</label>
-          <input formControlName="email" type="email">
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Phone Number</label>
-        <input formControlName="phone" type="tel">
-      </div>
-
-
-      <!-- ADDRESS -->
-      <div class="section-title">Address</div>
-      <div class="form-group">
-        <label>Address</label>
-        <input formControlName="address" type="text">
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>City</label>
-          <input formControlName="city" type="text">
-        </div>
-
-        <div class="form-group">
-          <label>Postal Code</label>
-          <input formControlName="postalCode" type="text">
-        </div>
-      </div>
-
-
-      <!-- MESSAGE -->
-      <div class="section-title">Message (Optional)</div>
-      <div class="form-group">
-        <textarea formControlName="message" rows="4"></textarea>
-      </div>
-
-
-      <!-- PAYMENT METHODS -->
-      <div class="section-title">Payment Method</div>
-      <div class="payment-method-cards">
-
-        <!-- CARD OPTION -->
-        <label class="pm-card" [class.selected]="checkoutForm.get('method')?.value === 'CARD'">
-          <input type="radio" formControlName="method" value="CARD">
-          <div class="pm-content">
-            <span class="pm-icon">💳</span>
-            <span>Credit Card</span>
-          </div>
-        </label>
-
-        <!-- PAYPAL OPTION -->
-        <label class="pm-card" [class.selected]="checkoutForm.get('method')?.value === 'PAYPAL'">
-          <input type="radio" formControlName="method" value="PAYPAL">
-          <div class="pm-content">
-            <span class="pm-icon">🅿️</span>
-            <span>PayPal</span>
-          </div>
-        </label>
-
-        <!-- ETRANSFER OPTION -->
-        <label class="pm-card" [class.selected]="checkoutForm.get('method')?.value === 'ETRANSFER'">
-          <input type="radio" formControlName="method" value="ETRANSFER">
-          <div class="pm-content">
-            <span class="pm-icon">🏦</span>
-            <span>E-Transfer</span>
-          </div>
-        </label>
-
-      </div>
+      <!-- (your existing checkout form HTML above stays the same) -->
 
       <!-- PAYPAL BUTTON -->
       <div id="paypal-button-container" *ngIf="checkoutForm.get('method')?.value === 'PAYPAL'"></div>
-
 
       <!-- SUBMIT BUTTON -->
       <button class="submit-btn" (click)="payNow()">
@@ -154,29 +19,39 @@
     <div *ngIf="errorMsg" class="error">{{ errorMsg }}</div>
   </div>
 
-<!-- E-TRANSFER POPUP -->
-<div class="etransfer-overlay" *ngIf="pendingInfo">
-  <div class="etransfer-modal">
-    <h2>✓ E-Transfer Order Created</h2>
+  <!-- E-TRANSFER POPUP -->
+  <div class="etransfer-overlay" *ngIf="pendingInfo">
+    <div class="etransfer-modal">
+      <h2>✓ E-Transfer Order Created</h2>
 
-    <p>Please send your payment within <strong>48 hours</strong>.</p>
+      <p>Please send your payment within <strong>48 hours</strong>.</p>
 
-    <div class="modal-section">
-      <p><strong>Amount Due:</strong> ${{ pendingInfo.amount }}</p>
-      <p><strong>Reference:</strong> {{ pendingInfo.reference }}</p>
+      <div class="modal-section">
+        <p><strong>Amount Due:</strong> ${{ pendingInfo.amount }}</p>
+        <p><strong>Reference:</strong> {{ pendingInfo.reference }}</p>
+      </div>
+
+      <p class="muted">
+        Send your e-transfer to <strong>info&#64;davendpunch.ca</strong>
+        and include the reference in the memo. You have been emailed instructions as well.
+      </p>
+
+      <!-- FREE FALLBACK: mailto + copy -->
+      <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top: 10px;">
+        <a class="btn btn-primary" [href]="pendingMailtoUrl" *ngIf="pendingMailtoUrl">
+          Email order summary to us
+        </a>
+
+        <button class="btn btn-primary" type="button" (click)="copyPendingSummary()" *ngIf="pendingSummaryText">
+          {{ pendingCopied ? 'Copied!' : 'Copy order summary' }}
+        </button>
+
+        <button class="btn btn-primary" (click)="closePendingModal()">
+          Done
+        </button>
+      </div>
     </div>
-
-    <p class="muted">
-      Send your e-transfer to <strong>info&#64;davendpunch.ca</strong>  
-      and include the reference in the memo. You have been emailed instructions as well.
-    </p>
-
-    <button class="btn btn-primary" (click)="closePendingModal()">
-      Done
-    </button>
   </div>
-</div>
-
 </div>
 
 <app-footer></app-footer>
